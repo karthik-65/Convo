@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: convo-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: MONGO_URI
+        sync: false  # Set in dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_ORIGIN
+        value: http://localhost:3000,https://convo-client.onrender.com
+
+  - type: web
+    name: convo-client
+    runtime: static
+    plan: free
+    rootDir: client
+    buildCommand: npm install && npm run build
+    envVars:
+      - key: REACT_APP_API_BASE
+        value: https://convo-server.onrender.com/api
+      - key: REACT_APP_SOCKET_URL
+        value: https://convo-server.onrender.com

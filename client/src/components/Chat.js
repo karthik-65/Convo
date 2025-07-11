@@ -3,7 +3,7 @@ import socket from '../socket';  // your socket.io client instance
 import axios from 'axios';
 import { Paperclip } from 'lucide-react';
 import EditMessage from './EditMessage'; // adjust path as needed
-
+import axiosInstance from '../api/axiosInstance';
 
 function Chat({ onLogout }) {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -141,9 +141,7 @@ socket.on('receive-message', (msg) => {
 
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/users', {
-      headers: { Authorization: localStorage.getItem('token') },
-    })
+      axiosInstance.get('/users')
       .then(res => {
         // console.log("All Users:", res.data);
         setAllUsers(res.data);
@@ -181,9 +179,8 @@ socket.on('receive-message', (msg) => {
   const fetchMessages = async (receiverId) => {
     setReceiver(receiverId);
     try {
-      const res = await axios.get(`/api/messages/${receiverId}`, {
-        headers: { Authorization: localStorage.getItem('token') },
-      });
+      const res = await axiosInstance.get(`/messages/${receiverId}`);
+
 
       setMessages(res.data);
 
@@ -204,7 +201,7 @@ socket.on('receive-message', (msg) => {
       const formData = new FormData();
       formData.append('file', file.raw);
       try {
-        const uploadRes = await axios.post('http://localhost:5000/api/upload', formData);
+        const uploadRes = await await axiosInstance.post('/upload', formData);
         fileUrl = uploadRes.data.fileUrl;
         fileName = file.name;
         fileSize = file.size;
@@ -227,11 +224,8 @@ socket.on('receive-message', (msg) => {
     };
 
     try {
-      const response = await axios.post('/api/messages', msg, {
-        headers: { Authorization: localStorage.getItem('token') },
-      });
+      const response = await axiosInstance.post('/messages', msg);
       const savedMsg = response.data;
-
       socket.emit('send-message', savedMsg);  // Use server-saved message
       setMessages(prev => [...prev, { ...savedMsg, seen: false }]);
       setMessage('');
@@ -271,9 +265,7 @@ socket.on('receive-message', (msg) => {
     if (!newText.trim()) return;
           console.log('Updating message:', id, newText);
     try {
-      await axios.put(`/api/messages/${id}`, { text: newText }, {
-        headers: { Authorization: localStorage.getItem('token') },
-      });
+        await axiosInstance.put(`/messages/${id}`, { text: newText });
 
       setMessages(prev =>
         prev.map(msg => (msg._id === id ? { ...msg, text: newText } : msg))
@@ -289,9 +281,7 @@ socket.on('receive-message', (msg) => {
 
   const handleDeleteMessage = async (id) => {
     try {
-      await axios.delete(`/api/messages/${id}`, {
-        headers: { Authorization: localStorage.getItem('token') },
-      });
+      await axiosInstance.delete(`/messages/${id}`);
 
       setMessages(prev => prev.filter(msg => msg._id !== id));
 
@@ -333,7 +323,7 @@ socket.on('receive-message', (msg) => {
           >
             {user.username.charAt(0).toUpperCase()}
           </div>
-          <span>Convo</span>
+          <span style={{color:"#FFBC00"}}>Convo</span>
         </div>
         <button
           onClick={() => setShowLogoutConfirm(true)}
@@ -561,7 +551,7 @@ socket.on('receive-message', (msg) => {
                                   <div
                                     onClick={() => {
                                       const link = document.createElement('a');
-                                      link.href = `http://localhost:5000${msg.file}`;
+                                      link.href = `${process.env.REACT_APP_API_BASE}${msg.file}`;
                                       link.download = msg.fileName || msg.file.split('/').pop();
                                       document.body.appendChild(link);
                                       link.click();
@@ -580,7 +570,7 @@ socket.on('receive-message', (msg) => {
                                   >
                                     {msg.fileType?.startsWith('image') && (
                                       <img
-                                        src={`http://localhost:5000${msg.file}`}
+                                        src={`${process.env.REACT_APP_API_BASE.replace('/api', '')}${msg.file}`}
                                         alt={msg.fileName}
                                         style={{
                                           maxWidth: '100%',
@@ -608,7 +598,7 @@ socket.on('receive-message', (msg) => {
                                     </div>
                                   </div>
                                 )}
-                                    {console.log('✅ Seen status:', msg.seen, 'for msg:', msg.text)}
+                                    {console.log(' Seen status:', msg.seen, 'for msg:', msg.text)}
 
                                 {/* Timestamp */}
                                 <div

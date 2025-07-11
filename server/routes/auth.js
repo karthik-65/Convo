@@ -7,7 +7,7 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// ✅ Register Route
+// Register Route
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
 
