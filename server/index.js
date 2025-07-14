@@ -141,6 +141,25 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('delete-message', { id });
   });
 
+  socket.on('markAsSeen', async ({ messageIds, userId }) => {
+    try {
+      await Message.updateMany(
+        { _id: { $in: messageIds }, seenBy: { $ne: userId } },
+        { $push: { seenBy: userId } }
+      );
+
+      messageIds.forEach((id) => {
+          Object.entries(users).forEach(([uid, sid]) => {
+            if (uid !== userId) {
+              io.to(sid).emit('messageSeen', { messageId: id, seenBy: userId });
+            }
+          });
+      });
+    } catch (error) {
+      console.error('Failed to mark messages as seen:', error);
+    }
+  });
+
   socket.on('disconnect', () => {
     for (const [userId, socketId] of Object.entries(users)) {
       if (socketId === socket.id) delete users[userId];

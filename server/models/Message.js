@@ -8,6 +8,8 @@ const messageSchema = new mongoose.Schema({
   fileName: { type: String, default: '' },    // original file name
   fileSize: { type: Number, default: 0 },     // file size in bytes
   fileType: { type: String, default: '' },  
+  seenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', messageSchema);

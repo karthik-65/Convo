@@ -24,6 +24,11 @@ function Register() {
 
   const navigate = useNavigate();
 
+  const validateUsername = (name) => {
+    const regex = /^[A-Za-z][A-Za-z0-9]*$/;
+    return regex.test(name);
+  };
+
   const validatePassword = (pwd) => {
     const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@#$*!])[A-Za-z\d@#$*!]{8,}$/;
     return regex.test(pwd);
@@ -40,6 +45,12 @@ function Register() {
 
     if (!username.trim()) {
       setUsernameError('Username is required');
+      isValid = false;
+    } else if (username.length > 16) {
+      setUsernameError('Username cannot exceed 16 characters');
+      isValid = false;
+    } else if (!validateUsername(username)) {
+      setUsernameError('Username must start with a letter and contain only letters and numbers');
       isValid = false;
     }
 
@@ -108,6 +119,7 @@ function Register() {
         type="text"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
+        maxLength={16}
         className={`register-input ${usernameError ? 'error' : ''}`}
         placeholder="Username"
       />
@@ -136,10 +148,7 @@ function Register() {
           className={`register-input ${passwordError ? 'error' : ''}`}
           placeholder="Enter Password"
         />
-        <span
-          className="toggle-password"
-          onClick={() => setShowPassword(!showPassword)}
-        >
+        <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
           <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
         </span>
       </div>

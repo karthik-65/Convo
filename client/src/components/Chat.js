@@ -139,6 +139,22 @@ socket.on('receive-message', (msg) => {
   };
 }, [user, allUsers]);
 
+  useEffect(() => {
+  socket.on('messageSeen', ({ messageId, seenBy }) => {
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg._id === messageId && !msg.seenBy?.includes(seenBy)
+          ? { ...msg, seenBy: [...(msg.seenBy || []), seenBy] }
+          : msg
+      )
+    );
+  });
+
+  return () => {
+    socket.off('messageSeen');
+  };
+}, []);
+
 
   useEffect(() => {
       axiosInstance.get('api/users')
@@ -155,6 +171,22 @@ socket.on('receive-message', (msg) => {
       setUnreadCounts(prev => ({ ...prev, [receiver]: 0 }));
     }
   }, [receiver]);
+
+  useEffect(() => {
+    if (receiver && messages.length > 0) {
+      const unseenMessageIds = messages
+        .filter(msg => msg.receiver === user._id && !msg.seenBy?.includes(user._id))
+        .map(msg => msg._id);
+
+      if (unseenMessageIds.length > 0) {
+        socket.emit('markAsSeen', {
+          messageIds: unseenMessageIds,
+          userId: user._id
+        });
+      }
+    }
+  }, [receiver, messages]);
+
 
   useEffect(() => {
     const chatBox = chatBoxRef.current;
@@ -484,7 +516,11 @@ socket.on('receive-message', (msg) => {
                       lastMessageDate = msgDateStr;
                     }
 
+
                     const isSender = msg.sender === user._id;
+                    const isSeen = msg.seenBy?.includes(receiver);
+                    const lastSentMessage = messages.filter(m => m.sender === user._id).slice(-1)[0];
+
 
                     return (
                       <React.Fragment key={msg._id || i}>
@@ -603,18 +639,42 @@ socket.on('receive-message', (msg) => {
 
                                 {/* Timestamp */}
                                 <div
+                                style={{
+                                  fontSize: '0.75em',
+                                  color: '#888',
+                                  marginTop: '4px',
+                                  textAlign: 'right',
+                                  display: 'flex',
+                                  justifyContent: 'flex-end',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={new Date(msg.createdAt).toLocaleString()}
+                              >
+                                {formatTimestamp(msg.createdAt)}
+                                {isSender && (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="17"
+                                  height="17"
+                                  fill={isSeen ? '#ff8c00' : '#aaa'} // green if seen, gray otherwise
+                                  viewBox="0 0 20 20"
                                   style={{
-                                    fontSize: '0.75em',
-                                    color: '#888',
-                                    marginTop: '4px',
-                                    textAlign: 'right',
-                                    display: 'block',
-                                    whiteSpace: 'nowrap'
+                                    display: 'inline-block',
+                                    verticalAlign: 'middle',
+                                    transform: 'rotate(-10deg)',
+                                    marginLeft: '4px', // small gap from timestamp
                                   }}
-                                  title={new Date(msg.createdAt).toLocaleString()}
                                 >
-                                  {formatTimestamp(msg.createdAt)}
-                                </div>
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              )}
+                              </div>
                               </>
                             )}
                           </div>
@@ -630,7 +690,7 @@ socket.on('receive-message', (msg) => {
                 <div
                   style={{
                     position: 'absolute',
-                    bottom: '60px', // Position it just above the input box
+                    bottom: '60px', 
                     left: '20px',
                     right: '20px',
                     backgroundColor: '#e1ecf7',
@@ -641,8 +701,8 @@ socket.on('receive-message', (msg) => {
                     gap: '10px',
                     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                     zIndex: 10,
-                    width: 'auto', // Width will depend on the content
-                    maxWidth: 'calc(100% - 40px)', // Ensure it doesn't exceed the container width
+                    width: 'auto', 
+                    maxWidth: 'calc(100% - 40px)', 
                   }}
                 >
                   <Paperclip size={18} />
@@ -699,7 +759,7 @@ socket.on('receive-message', (msg) => {
                     style={{
                       position: 'absolute',
                       right: 8,
-                      top: '15%',
+                      top: '22%',
                       transform: 'translateY(-50%)',
                       cursor: 'pointer',
                       color: '#555',
