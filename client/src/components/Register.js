@@ -3,6 +3,9 @@ import axios from 'axios';
 import './Register.css';
 import { useNavigate } from 'react-router-dom';
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+
 function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -12,34 +15,73 @@ function Register() {
   const [usernameError, setUsernameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const navigate = useNavigate();
 
+  const validatePassword = (pwd) => {
+    const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@#$*!])[A-Za-z\d@#$*!]{8,}$/;
+    return regex.test(pwd);
+  };
+
   const handleRegister = async () => {
-    // Reset errors
     setUsernameError('');
     setEmailError('');
     setPasswordError('');
+    setConfirmPasswordError('');
     setGeneralError('');
 
-    if (password !== confirmPassword) {
-      setPasswordError('Passwords do not match');
-      return;
+    let isValid = true;
+
+    if (!username.trim()) {
+      setUsernameError('Username is required');
+      isValid = false;
     }
 
+    if (!email.trim()) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setEmailError('Invalid email format');
+        isValid = false;
+      }
+    }
+
+    if (!password.trim()) {
+      setPasswordError('Password is required');
+      isValid = false;
+    } else if (!validatePassword(password)) {
+      setPasswordError(
+        'Password must contain at least 8 characters, 1 uppercase letter, 1 number, and 1 special character (@, #, $, *, !).'
+      );
+      isValid = false;
+    }
+
+    if (!confirmPassword.trim()) {
+      setConfirmPasswordError('Please confirm your password');
+      isValid = false;
+    } else if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
     try {
-        const res = await axios.post(`${process.env.REACT_APP_API_BASE}/api/auth/register`, {
+      await axios.post(`${process.env.REACT_APP_API_BASE}/api/auth/register`, {
         username,
         email,
         password,
       });
 
-      // Show success modal
       setShowSuccessModal(true);
-
-      // Redirect to login after 2 seconds
       setTimeout(() => {
         setShowSuccessModal(false);
         navigate('/login');
@@ -49,11 +91,9 @@ function Register() {
 
       if (message.toLowerCase().includes('username')) {
         setUsernameError('Username already exists');
-      }
-      if (message.toLowerCase().includes('email')) {
+      } else if (message.toLowerCase().includes('email')) {
         setEmailError('Email already exists');
-      }
-      if (!message.toLowerCase().includes('username') && !message.toLowerCase().includes('email')) {
+      } else {
         setGeneralError(message);
       }
     }
@@ -71,7 +111,9 @@ function Register() {
         className={`register-input ${usernameError ? 'error' : ''}`}
         placeholder="Username"
       />
-      {usernameError && <div className="error-text">{usernameError}</div>}
+      <div className="error-text" style={{ visibility: usernameError ? 'visible' : 'hidden' }}>
+        {usernameError || 'placeholder'}
+      </div>
 
       <label>Email</label>
       <input
@@ -81,27 +123,56 @@ function Register() {
         className={`register-input ${emailError ? 'error' : ''}`}
         placeholder="Email"
       />
-      {emailError && <div className="error-text">{emailError}</div>}
+      <div className="error-text" style={{ visibility: emailError ? 'visible' : 'hidden' }}>
+        {emailError || 'placeholder'}
+      </div>
 
       <label>Password</label>
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className={`register-input ${passwordError ? 'error' : ''}`}
-        placeholder="Password"
-      />
+      <div className="password-wrapper">
+        <input
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={`register-input ${passwordError ? 'error' : ''}`}
+          placeholder="Enter Password"
+        />
+        <span
+          className="toggle-password"
+          onClick={() => setShowPassword(!showPassword)}
+        >
+          <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+        </span>
+      </div>
+      <div className="password-description">
+        Password must contain at least 8 characters, 1 uppercase letter, 1 number, and 1 special character (@, #, $, *, !).
+      </div>
+      <div className="error-text" style={{ visibility: passwordError ? 'visible' : 'hidden' }}>
+        {passwordError || 'placeholder'}
+      </div>
 
       <label>Confirm Password</label>
-      <input
-        type="password"
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        className={`register-input ${passwordError ? 'error' : ''}`}
-        placeholder="Confirm Password"
-      />
-      {passwordError && <div className="error-text">{passwordError}</div>}
-      {generalError && <div className="error-text">{generalError}</div>}
+      <div className="password-wrapper">
+        <input
+          type={showConfirmPassword ? 'text' : 'password'}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className={`register-input ${confirmPasswordError ? 'error' : ''}`}
+          placeholder="Confirm Password"
+        />
+        <span
+          className="toggle-password"
+          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+        >
+          <FontAwesomeIcon icon={showConfirmPassword ? faEyeSlash : faEye} />
+        </span>
+      </div>
+      <div className="error-text" style={{ visibility: confirmPasswordError ? 'visible' : 'hidden' }}>
+        {confirmPasswordError || 'placeholder'}
+      </div>
+
+      <div className="error-text" style={{ visibility: generalError ? 'visible' : 'hidden' }}>
+        {generalError || 'placeholder'}
+      </div>
 
       <button onClick={handleRegister} className="register-button">
         Register

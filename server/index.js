@@ -8,8 +8,8 @@ const multer = require('multer');
 const { GridFsStorage } = require('multer-gridfs-storage');
 const { GridFSBucket } = require('mongodb');
 const path = require('path');
-const Message = require('./models/Message'); 
 
+const Message = require('./models/Message');
 const authRoutes = require('./routes/auth');
 const messageRoutes = require('./routes/messages');
 const User = require('./models/User');
@@ -17,11 +17,15 @@ const User = require('./models/User');
 dotenv.config();
 const app = express();
 const server = http.createServer(app);
+
+// Update this list to match actual frontend domains
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://convo-client.onrender.com'
+  'https://convo-client.onrender.com',
+  'https://convo-client-hozd.onrender.com', 
 ];
 
+// Apply CORS for REST API
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -30,55 +34,45 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
-
-const io = require('socket.io')(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  }
-});
 
 app.use(express.json());
 
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Credentials', true);
+  res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
 
+const io = socketIo(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
 
 if (!process.env.MONGO_URI) {
   throw new Error("MONGO_URI is not set in environment variables!");
 }
 
-// MongoDB + GridFS setup
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error(err));
 
-// GridFS Storage
 const storage = new GridFsStorage({
   url: process.env.MONGO_URI,
-  file: (req, file) => {
-    const filename = `${Date.now()}-${file.originalname}`;
-    return {
-      filename: filename,
-      bucketName: 'uploads', // GridFS collection name will be uploads.files and uploads.chunks
-      metadata: {
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-      }
-    };
-  }
+  file: (req, file) => ({
+    filename: `${Date.now()}-${file.originalname}`,
+    bucketName: 'uploads',
+    metadata: {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    }
+  }),
 });
-
 const upload = multer({ storage });
 
-//  Upload route to MongoDB
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
   res.json({
@@ -87,34 +81,26 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     originalName: req.file.metadata.originalname,
     size: req.file.size,
     type: req.file.metadata.mimetype,
-    fileUrl: `${req.protocol}://${req.get('host')}/file/${req.file.filename}`
+    fileUrl: `${req.protocol}://${req.get('host')}/file/${req.file.filename}`,
   });
 });
 
-// Download route (file preview/download from GridFS)
 app.get('/file/:filename', async (req, res) => {
   try {
-    const db = mongoose.connection.db;
-    const bucket = new GridFSBucket(db, { bucketName: 'uploads' });
+    const bucket = new GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const stream = bucket.openDownloadStreamByName(req.params.filename);
 
-    const downloadStream = bucket.openDownloadStreamByName(req.params.filename);
-
-    downloadStream.on('error', () => {
-      res.status(404).json({ message: 'File not found' });
-    });
-
-    downloadStream.pipe(res);
+    stream.on('error', () => res.status(404).json({ message: 'File not found' }));
+    stream.pipe(res);
   } catch (err) {
     console.error('Download error:', err);
     res.status(500).json({ message: 'Server error during file download' });
   }
 });
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
 
-// Get All Users
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({}, '_id username');
@@ -124,13 +110,12 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Socket.IO
-const users = {}; // Map of userId => socket.id
+const users = {}; // Map userId => socket.id
 
 io.on('connection', (socket) => {
-  socket.on('join', async (userId) => {
+  socket.on('join', (userId) => {
     users[userId] = socket.id;
-    io.emit('online-users', Object.keys(users)); // Emit userIds
+    io.emit('online-users', Object.keys(users));
   });
 
   socket.on('send-message', (msg) => {
@@ -148,24 +133,21 @@ io.on('connection', (socket) => {
     if (receiverSocket) io.to(receiverSocket).emit('stop-typing', { sender, receiver });
   });
 
-    socket.on('edit-message', ({ id, text }) => {
+  socket.on('edit-message', ({ id, text }) => {
     socket.broadcast.emit('edit-message', { id, text });
   });
 
-  // Broadcast deleted message to others
   socket.on('delete-message', ({ id }) => {
     socket.broadcast.emit('delete-message', { id });
   });
 
-
-  socket.on('disconnect', async () => {
-    for (const [userId, sockId] of Object.entries(users)) {
-      if (sockId === socket.id) delete users[userId];
+  socket.on('disconnect', () => {
+    for (const [userId, socketId] of Object.entries(users)) {
+      if (socketId === socket.id) delete users[userId];
     }
     io.emit('online-users', Object.keys(users));
   });
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

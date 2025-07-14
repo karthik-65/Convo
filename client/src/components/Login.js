@@ -6,25 +6,47 @@ import './Login.css';
 function Login({ setUser }) {
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(false); // clear previous error
+
+    setEmailError('');
+    setPasswordError('');
+    setLoginError('');
+
+    let isValid = true;
+
+    if (!emailOrUsername.trim()) {
+      setEmailError('Username or Email is required');
+      isValid = false;
+    }
+
+    if (!password.trim()) {
+      setPasswordError('Password is required');
+      isValid = false;
+    }
+
+    if (!isValid) return;
 
     try {
-      const res = await axiosInstance.post('auth/login', {
+      const res = await axiosInstance.post('api/auth/login', {
         emailOrUsername: emailOrUsername.trim(),
         password: password.trim(),
       });
+
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       setUser(res.data.user);
       navigate('/');
     } catch (err) {
       console.error('Login error:', err.response ? err.response.data : err.message);
-      setError(true); // show invalid credentials
+      setLoginError('Invalid credentials');
     }
   };
 
@@ -33,15 +55,20 @@ function Login({ setUser }) {
       <form onSubmit={handleSubmit} className="login-form">
         <h2>Login</h2>
 
-        <label>Username Or Email</label>
+        <label>Username or Email</label>
         <input
           type="text"
           placeholder="Email or Username"
           value={emailOrUsername}
           onChange={(e) => setEmailOrUsername(e.target.value)}
-          className={`login-input ${error ? 'error-input' : ''}`}
-          required
+          className={`login-input ${emailError || loginError ? 'error-input' : ''}`}
         />
+        <div
+          className="error-text"
+          style={{ visibility: emailError ? 'visible' : 'hidden' }}
+        >
+          {emailError || 'placeholder'}
+        </div>
 
         <label>Password</label>
         <input
@@ -49,13 +76,23 @@ function Login({ setUser }) {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className={`login-input ${error ? 'error-input' : ''}`}
-          required
+          className={`login-input ${passwordError || loginError ? 'error-input' : ''}`}
         />
+        <div
+          className="error-text"
+          style={{ visibility: passwordError ? 'visible' : 'hidden' }}
+        >
+          {passwordError || 'placeholder'}
+        </div>
 
-        {error && <div className="error-text">Invalid credentials</div>}
+        <div
+          className="error-text"
+          style={{ visibility: loginError ? 'visible' : 'hidden' }}
+        >
+          {loginError || 'placeholder'}
+        </div>
 
-        <button type="submit">Login</button>
+        <button type="submit" className="login-button">Login</button>
 
         <p className="register-link">
           Don't have an account? <Link to="/register">Register</Link>

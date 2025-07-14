@@ -141,7 +141,7 @@ socket.on('receive-message', (msg) => {
 
 
   useEffect(() => {
-      axiosInstance.get('/users')
+      axiosInstance.get('api/users')
       .then(res => {
         // console.log("All Users:", res.data);
         setAllUsers(res.data);
@@ -179,7 +179,7 @@ socket.on('receive-message', (msg) => {
   const fetchMessages = async (receiverId) => {
     setReceiver(receiverId);
     try {
-      const res = await axiosInstance.get(`/messages/${receiverId}`);
+      const res = await axiosInstance.get(`api/messages/${receiverId}`);
 
 
       setMessages(res.data);
@@ -201,7 +201,7 @@ socket.on('receive-message', (msg) => {
       const formData = new FormData();
       formData.append('file', file.raw);
       try {
-        const uploadRes = await await axiosInstance.post('/upload', formData);
+        const uploadRes = await axiosInstance.post('api/upload', formData);
         fileUrl = uploadRes.data.fileUrl;
         fileName = file.name;
         fileSize = file.size;
@@ -224,7 +224,7 @@ socket.on('receive-message', (msg) => {
     };
 
     try {
-      const response = await axiosInstance.post('/messages', msg);
+      const response = await axiosInstance.post('api/messages', msg);
       const savedMsg = response.data;
       socket.emit('send-message', savedMsg);  // Use server-saved message
       setMessages(prev => [...prev, { ...savedMsg, seen: false }]);
@@ -551,11 +551,12 @@ socket.on('receive-message', (msg) => {
                                   <div
                                     onClick={() => {
                                       const link = document.createElement('a');
-                                      link.href = `${process.env.REACT_APP_API_BASE}${msg.file}`;
-                                      link.download = msg.fileName || msg.file.split('/').pop();
+                                      link.href = msg.file; 
+                                      link.setAttribute('download', msg.fileName || 'download');
                                       document.body.appendChild(link);
                                       link.click();
                                       document.body.removeChild(link);
+
                                     }}
                                     style={{
                                       marginTop: '6px',
@@ -570,7 +571,7 @@ socket.on('receive-message', (msg) => {
                                   >
                                     {msg.fileType?.startsWith('image') && (
                                       <img
-                                        src={`${process.env.REACT_APP_API_BASE.replace('/api', '')}${msg.file}`}
+                                        src={msg.file}
                                         alt={msg.fileName}
                                         style={{
                                           maxWidth: '100%',
