@@ -190,7 +190,21 @@ function Register() {
       {showSuccessModal && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>✅ Registration Successful!</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="32"
+                height="32"
+                viewBox="0 0 512 512"
+              >
+                <circle cx="256" cy="256" r="256" fill="#00C000" />
+                <path
+                  d="M378.305 164.736c10.033 10.033 10.033 26.29 0 36.323L229.013 350.352c-10.033 10.033-26.29 10.033-36.323 0l-72.995-72.995c-10.033-10.033-10.033-26.29 0-36.323s26.29-10.033 36.323 0l54.834 54.834L341.982 164.736c10.033-10.033 26.29-10.033 36.323 0z"
+                  fill="#fff"
+                />
+              </svg>
+              Registration Successful!
+            </h3>
             <p>Redirecting to login...</p>
           </div>
         </div>
