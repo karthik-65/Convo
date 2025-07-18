@@ -157,7 +157,7 @@ socket.on('receive-message', (msg) => {
 
 
   useEffect(() => {
-      axiosInstance.get('api/users')
+      axiosInstance.get('users')
       .then(res => {
         // console.log("All Users:", res.data);
         setAllUsers(res.data);
@@ -211,7 +211,7 @@ socket.on('receive-message', (msg) => {
   const fetchMessages = async (receiverId) => {
     setReceiver(receiverId);
     try {
-      const res = await axiosInstance.get(`api/messages/${receiverId}`);
+      const res = await axiosInstance.get(`messages/${receiverId}`);
 
 
       setMessages(res.data);
@@ -233,7 +233,7 @@ socket.on('receive-message', (msg) => {
       const formData = new FormData();
       formData.append('file', file.raw);
       try {
-        const uploadRes = await axiosInstance.post('api/upload', formData);
+        const uploadRes = await axiosInstance.post('upload', formData);
         fileUrl = uploadRes.data.fileUrl;
         fileName = file.name;
         fileSize = file.size;

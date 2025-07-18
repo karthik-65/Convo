@@ -35,7 +35,7 @@ function Login({ setUser }) {
     if (!isValid) return;
 
     try {
-      const res = await axiosInstance.post('auth/login', {
+      const res = await axiosInstance.post('/auth/login', {
         emailOrUsername: emailOrUsername.trim(),
         password: password.trim(),
       });
