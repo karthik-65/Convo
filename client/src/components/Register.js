@@ -86,7 +86,7 @@ function Register() {
     if (!isValid) return;
 
     try {
-      await axios.post(`${process.env.REACT_APP_API_BASE}/api/auth/register`, {
+      await axios.post(`${process.env.REACT_APP_API_BASE}/auth/register`, {
         username,
         email,
         password,
