@@ -73,7 +73,7 @@ function Chat({ onLogout }) {
     });
   }
 
- // ✅ EFFECT 1 — Initialize socket events ONCE
+ // EFFECT 1 — Initialize socket events ONCE
   useEffect(() => {
   if (!user?._id) return;
 
@@ -104,7 +104,7 @@ function Chat({ onLogout }) {
     });
   });
 
-  // ✅ Simplify this now:
+  //  Simplify this now:
 socket.on('receive-message', (msg) => {
   const isActiveChat = receiverRef.current === msg.sender;
 
@@ -157,7 +157,7 @@ socket.on('receive-message', (msg) => {
 
 
   useEffect(() => {
-      axiosInstance.get('users')
+      axiosInstance.get('/users')
       .then(res => {
         // console.log("All Users:", res.data);
         setAllUsers(res.data);
@@ -211,7 +211,7 @@ socket.on('receive-message', (msg) => {
   const fetchMessages = async (receiverId) => {
     setReceiver(receiverId);
     try {
-      const res = await axiosInstance.get(`messages/${receiverId}`);
+      const res = await axiosInstance.get(`/messages/${receiverId}`);
 
 
       setMessages(res.data);
@@ -233,7 +233,7 @@ socket.on('receive-message', (msg) => {
       const formData = new FormData();
       formData.append('file', file.raw);
       try {
-        const uploadRes = await axiosInstance.post('upload', formData);
+        const uploadRes = await axiosInstance.post('/upload', formData);
         fileUrl = uploadRes.data.fileUrl;
         fileName = file.name;
         fileSize = file.size;
@@ -256,7 +256,7 @@ socket.on('receive-message', (msg) => {
     };
 
     try {
-      const response = await axiosInstance.post('api/messages', msg);
+      const response = await axiosInstance.post('/messages', msg);
       const savedMsg = response.data;
       socket.emit('send-message', savedMsg);  // Use server-saved message
       setMessages(prev => [...prev, { ...savedMsg, seen: false }]);
