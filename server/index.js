@@ -21,7 +21,6 @@ const server = http.createServer(app);
 // Update this list to match actual frontend domains
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://convo-client.onrender.com',
   'https://convo-client-hozd.onrender.com', 
 ];
 
@@ -39,6 +38,10 @@ app.use(cors({
 
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  res.send('Convo backend is running.');
+});
+
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   next();
@@ -46,11 +49,18 @@ app.use((req, res, next) => {
 
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Socket.IO CORS Error: Not allowed'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
+
 
 if (!process.env.MONGO_URI) {
   throw new Error("MONGO_URI is not set in environment variables!");

@@ -51,6 +51,7 @@ function Login({ setUser }) {
   };
 
   return (
+    <div className="page-wrapper">
     <div className="login-container">
       <form onSubmit={handleSubmit} className="login-form">
         <h2>Login</h2>
@@ -98,6 +99,7 @@ function Login({ setUser }) {
           Don't have an account? <Link to="/register">Register</Link>
         </p>
       </form>
+    </div>
     </div>
   );
 }

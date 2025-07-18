@@ -111,6 +111,7 @@ function Register() {
   };
 
   return (
+    <div className="page-wrapper">
     <div className="register-container">
       <h2>Register</h2>
 
@@ -209,6 +210,7 @@ function Register() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
