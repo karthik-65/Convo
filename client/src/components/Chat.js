@@ -499,7 +499,7 @@ function Chat({ onLogout }) {
             display: isMobileChatOpen || !isMobile ? 'flex' : 'none',
             flexDirection: 'column',
             flex:'1',
-            height: '100dvh',
+            height: '100%',
             overflow: 'hidden',
           }}
         >
@@ -1063,4 +1063,3 @@ function Chat({ onLogout }) {
 }
 
 export default Chat;
-
