@@ -120,7 +120,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-const users = {}; // Map userId => socket.id
+const users = {}; 
 
 io.on('connection', (socket) => {
   socket.on('join', (userId) => {

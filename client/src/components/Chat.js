@@ -2,8 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import socket from '../socket';  // your socket.io client instance
 import axios from 'axios';
 import { Paperclip } from 'lucide-react';
+import { ArrowLeft,Send } from 'lucide-react';
 import EditMessage from './EditMessage'; // adjust path as needed
 import axiosInstance from '../api/axiosInstance';
+import './Chat.css';
+
 
 function Chat({ onLogout }) {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -21,9 +24,11 @@ function Chat({ onLogout }) {
   const chatBoxRef = useRef(null);  // Ref for the chat messages container
   const receiverRef = useRef(receiver);
   const [hoveredUserId, setHoveredUserId] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null); // { url, name }
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState({
     visible: false,
     x: 0,
@@ -210,7 +215,10 @@ socket.on('receive-message', (msg) => {
 
   const fetchMessages = async (receiverId) => {
     setReceiver(receiverId);
-    try {
+    if (window.innerWidth < 768) {
+          setIsMobileChatOpen(true);
+        }   
+     try {
       const res = await axiosInstance.get(`/messages/${receiverId}`);
 
 
@@ -322,61 +330,32 @@ socket.on('receive-message', (msg) => {
       console.error('Delete failed:', err);
     }
   };
+    
+  const isMobile = window.innerWidth < 768;
+  const isReceiverOnline = onlineUsers.some(u => u._id === receiver);
+  const isTyping = typingUsers?.[receiver];
 
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',margin: 0,padding: 0,boxSizing: 'border-box' }}>
-      <nav style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '10px 20px',
-        backgroundColor: '#007bff',
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: '1.2rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              backgroundColor: '#fff',
-              color: '#007bff',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              fontWeight: 'bold',
-              fontSize: '1.1rem',
-              userSelect: 'none',
-            }}
-            title={user.username}
-          >
+    <div className="chat-container">
+      <nav className="chat-navbar">
+        <div className="chat-logo">
+          <div className="chat-avatar" title={user.username}>
             {user.username.charAt(0).toUpperCase()}
           </div>
-          <span style={{color:"#FFBC00"}}>Convo</span>
+          <span style={{ color: "#FFBC00" }}>Convo</span>
         </div>
-        <button
-          onClick={() => setShowLogoutConfirm(true)}
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid white',
-            color: 'white',
-            padding: '6px 12px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          Logout
-        </button>
+        <button className="logout-button" onClick={() => setShowLogoutConfirm(true)}>Logout</button>
       </nav>
 
-      <div style={{ display: 'flex', flex: 1, padding: 20,overflow:'hidden',minHeight: 0, backgroundColor: '#f5f5f5', }}>
-        {/* User List */}
-        <div style={{ width: '25%', border: '1px solid #ccc', backgroundColor: 'white', borderRadius: 8,display: 'flex', flexDirection: 'column',    overflow: 'hidden'
-        }}>
+
+       <div className="chat-body" style={{ display: 'flex', flex: 1, height: 'calc(100vh - 60px)' }}>
+        <div
+    className="user-list"
+    style={{
+      display: isMobileChatOpen && isMobile ? 'none' : 'flex',
+    }}
+  >
           <h3 style={{marginLeft:'15px'}}>Users</h3>
           <div style={{ padding: '8px 14px' }}>
             <input
@@ -486,8 +465,55 @@ socket.on('receive-message', (msg) => {
         </div>
 
         {/* Chat area */}
-        <div style={{ width: '75%', paddingLeft: 20, display: 'flex', flexDirection: 'column',overflow:'hidden',minHeight: 0, position: 'relative' }}>
-          <h3>{allUsers.find(u => u._id === receiver)?.username || 'Chat'}</h3>
+        <div
+          className="chat-area"
+          style={{
+            display: isMobileChatOpen || !isMobile ? 'flex' : 'none',
+            flexDirection: 'column',
+            flex: 1,
+          }}
+        >
+          {/* Back button for mobile */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '10px' }}>
+                      {(window.innerWidth < 768 && isMobileChatOpen) && (
+                        <ArrowLeft
+                          onClick={() => setIsMobileChatOpen(false)}
+                          style={{
+                            cursor: 'pointer',
+                          }}
+                          size={24}
+                          title="Back"
+                        />
+                      )}
+                      <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {allUsers.find(u => u._id === receiver)?.username || 'Chat'}
+            {isMobile && isReceiverOnline && (
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: 'green',
+                  display: 'inline-block',
+                  marginTop: 2,
+                }}
+                title="Online"
+              />
+            )}
+            {isMobile && isTyping && (
+              <span
+                style={{
+                  fontStyle: 'italic',
+                  fontSize: '0.75rem',
+                  color: '#888',
+                  marginLeft: '6px'
+                }}
+              >
+                typing...
+              </span>
+            )}
+          </h3>
+          </div>
           {receiver ? (
             <>
               
@@ -502,6 +528,8 @@ socket.on('receive-message', (msg) => {
                   marginBottom: '10px',
                   borderRadius: '8px',
                   backgroundColor: '#fff',
+                  minHeight: '400px',     // 
+                  height: '100%',   
                 }}
               >
                 {(() => {
@@ -583,59 +611,77 @@ socket.on('receive-message', (msg) => {
                                 <p style={{ margin: 0 }}>{msg.text}</p>
 
                                 {/* File Preview (Image or Downloadable) */}
-                                {msg.file && (
-                                  <div
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = msg.file; 
-                                      link.setAttribute('download', msg.fileName || 'download');
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
+                              {msg.file && (
+                                <div
+                                  className="file-preview"
+                                  onClick={() => {
+                                    const rawName = msg.fileName || msg.file.split('/').pop();
+                                    const finalName = rawName.includes('-')
+                                      ? rawName.split('-').slice(1).join('-')
+                                      : rawName;
 
-                                    }}
+                                    if (msg.fileType.startsWith('image')) {
+                                      setPreviewImage({
+                                        url: msg.file,
+                                        name: finalName,
+                                      });
+                                    } else {
+                                      // Open all non-images (PDF, ZIP, DOC, etc.) in new tab
+                                      window.open(msg.file, '_blank');
+                                    }
+                                  }}
+                                  style={{
+                                    marginTop: '6px',
+                                    padding: '10px',
+                                    backgroundColor: '#eef3fb',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    maxWidth: '300px',
+                                  }}
+                                >
+                                  {/* Image Preview */}
+                                  {msg.fileType.startsWith('image') && (
+                                    <img
+                                      src={msg.file}
+                                      alt="preview"
+                                      style={{
+                                        maxWidth: '100%',
+                                        maxHeight: '200px',
+                                        borderRadius: '6px',
+                                        objectFit: 'cover',
+                                      }}
+                                    />
+                                  )}
+
+                                  {/* Icon + Filename (always shown) */}
+                                  {!msg.fileType.startsWith('image') && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <Paperclip size={18} color="#333" />
+                                  <span
                                     style={{
-                                      marginTop: '6px',
-                                      padding: '10px',
-                                      backgroundColor: '#eef3fb',
-                                      borderRadius: '8px',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: '4px',
-                                      cursor: 'pointer',
+                                      fontWeight: 'bold',
+                                      color: '#000',
+                                      overflowWrap: 'anywhere',
                                     }}
                                   >
-                                    {msg.fileType?.startsWith('image') && (
-                                      <img
-                                        src={msg.file}
-                                        alt={msg.fileName}
-                                        style={{
-                                          maxWidth: '100%',
-                                          maxHeight: '200px',
-                                          marginTop: '8px',
-                                          borderRadius: '6px',
-                                        }}
-                                      />
-                                    )}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <Paperclip size={18} color="#333" />
-                                      <span
-                                        style={{
-                                          textDecoration: 'none',
-                                          color: '#000',
-                                          fontWeight: 'bold',
-                                          overflowWrap: 'anywhere',
-                                        }}
-                                      >
-                                        {msg.fileName || msg.file.split('/').pop()}
-                                      </span>
-                                    </div>
-                                    <div style={{ fontSize: '0.85em', color: '#555' }}>
-                                      {(msg.fileSize / 1024).toFixed(1)} KB • {msg.fileType.split('/')[0]}
-                                    </div>
-                                  </div>
-                                )}
-                                    {console.log(' Seen status:', msg.seen, 'for msg:', msg.text)}
+                                    {
+                                      (msg.fileName || msg.file.split('/').pop()).includes('-')
+                                        ? (msg.fileName || msg.file.split('/').pop()).split('-').slice(1).join('-')
+                                        : (msg.fileName || msg.file.split('/').pop())
+                                    }
+                                  </span>
+                                </div>
+                              )}
+                              {/* File Info */}
+                                <div style={{ fontSize: '0.85em', color: '#555' }}>
+                                  {(msg.fileSize / 1024).toFixed(1)} KB • {msg.fileType.split('/')[1]}
+                                </div>
+                                </div>
+                              )}
 
                                 {/* Timestamp */}
                                 <div
@@ -735,71 +781,86 @@ socket.on('receive-message', (msg) => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <input
-                    value={message}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setMessage(val);
-                      handleTyping(val);
-                    }}
-                    placeholder="Type your message..."
-                    style={{
-                      width: '100%',
-                      padding: '8px 40px 8px 8px',
-                      borderRadius: '4px',
-                      border: '1px solid #ccc',
-                      boxSizing: 'border-box',
-                    }}
-                    autoComplete="off"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: '22%',
-                      transform: 'translateY(-50%)',
-                      cursor: 'pointer',
-                      color: '#555',
-                    }}
-                    title="Attach file"
-                  >
-                    <Paperclip size={20} />
-                  </label>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    onChange={(e) => {
-                      const selectedFile = e.target.files[0];
-                      if (selectedFile) {
-                        setFile({
-                          raw: selectedFile,
-                          name: selectedFile.name,
-                          size: selectedFile.size,
-                          type: selectedFile.type
-                        });
-                      }
-                    }}
-                    style={{ display: 'none' }}
-                  />
-                </div>
-                <button
-                  onClick={sendMessage}
-                  disabled={!message.trim() && !file}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: (!message.trim() && !file) ? '#ccc' : '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: (!message.trim() && !file) ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  Send
-                </button>
-              </div>
+              <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginTop: '10px',
+              }}
+            >
+              {/* Input Field */}
+              <input
+                value={message}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMessage(val);
+                  handleTyping(val);
+                }}
+                placeholder="Type your message..."
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid #ccc',
+                  outline: 'none',
+                  fontSize: '1rem',
+                }}
+                autoComplete="off"
+              />
+
+              {/* Paperclip Icon */}
+              <label
+                htmlFor="file-upload"
+                style={{
+                  cursor: 'pointer',
+                  color: '#555',
+                }}
+                title="Attach file"
+              >
+                <Paperclip size={20} />
+              </label>
+              <input
+                id="file-upload"
+                type="file"
+                onChange={(e) => {
+                  const selectedFile = e.target.files[0];
+                  if (selectedFile) {
+                    setFile({
+                      raw: selectedFile,
+                      name: selectedFile.name,
+                      size: selectedFile.size,
+                      type: selectedFile.type
+                    });
+                  }
+                }}
+                style={{ display: 'none' }}
+              />
+
+              {/* Send Button */}
+            <button
+              onClick={sendMessage}
+              disabled={!message.trim() && !file}
+              style={{
+                width: '40px',
+                height: '40px',
+                backgroundColor: (!message.trim() && !file) ? '#ccc' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                cursor: (!message.trim() && !file) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+              title="Send"
+            >
+              <Send size={18} />
+            </button>
+
+            </div>
+
             </>
           ) : (
             <p>Select a user to start chatting</p>
@@ -911,6 +972,60 @@ socket.on('receive-message', (msg) => {
             style={{ padding: '6px 12px', cursor: 'pointer' }}
           >
             Delete
+          </div>
+        </div>
+      )}
+      {previewImage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '90%',
+              maxHeight: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewImage(null)}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: 'none',
+                borderRadius: '50%',
+                padding: '6px',
+                cursor: 'pointer',
+              }}
+              title="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#fff" viewBox="0 0 24 24">
+                <path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L12 13.41l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z"/>
+              </svg>
+            </button>
+
+            <img
+              src={previewImage.url}
+              alt="Preview"
+              style={{
+                width: '100%',
+                height: 'auto',
+                borderRadius: '8px',
+                maxHeight: '100%',
+                objectFit: 'contain',
+              }}
+            />
           </div>
         </div>
       )}

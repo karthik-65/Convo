@@ -3,9 +3,13 @@ import axiosInstance from '../api/axiosInstance';
 import { Link, useNavigate } from 'react-router-dom';
 import './Login.css';
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+
 function Login({ setUser }) {
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -52,54 +56,44 @@ function Login({ setUser }) {
 
   return (
     <div className="page-wrapper">
-    <div className="login-container">
-      <form onSubmit={handleSubmit} className="login-form">
-        <h2>Login</h2>
+      <div className="login-container">
+        <form onSubmit={handleSubmit} className="login-form">
+          <h2>Login</h2>
 
-        <label>Username or Email</label>
-        <input
-          type="text"
-          placeholder="Email or Username"
-          value={emailOrUsername}
-          onChange={(e) => setEmailOrUsername(e.target.value)}
-          className={`login-input ${emailError || loginError ? 'error-input' : ''}`}
-        />
-        <div
-          className="error-text"
-          style={{ visibility: emailError ? 'visible' : 'hidden' }}
-        >
-          {emailError || 'placeholder'}
-        </div>
+          <label>Username or Email</label>
+          <input
+            type="text"
+            placeholder="Email or Username"
+            value={emailOrUsername}
+            onChange={(e) => setEmailOrUsername(e.target.value)}
+            className={`login-input ${emailError || loginError ? 'error-input' : ''}`}
+          />
+          <div className="error-text">{emailError || ' '}</div>
 
-        <label>Password</label>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={`login-input ${passwordError || loginError ? 'error-input' : ''}`}
-        />
-        <div
-          className="error-text"
-          style={{ visibility: passwordError ? 'visible' : 'hidden' }}
-        >
-          {passwordError || 'placeholder'}
-        </div>
+          <label>Password</label>
+          <div className="password-wrapper">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`login-input ${passwordError || loginError ? 'error-input' : ''}`}
+            />
+            <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
+              <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+            </span>
+          </div>
+          <div className="error-text">{passwordError || ' '}</div>
 
-        <div
-          className="error-text"
-          style={{ visibility: loginError ? 'visible' : 'hidden' }}
-        >
-          {loginError || 'placeholder'}
-        </div>
+          <div className="error-text">{loginError || ' '}</div>
 
-        <button type="submit" className="login-button">Login</button>
+          <button type="submit" className="login-button">Login</button>
 
-        <p className="register-link">
-          Don't have an account? <Link to="/register">Register</Link>
-        </p>
-      </form>
-    </div>
+          <p className="register-link">
+            Don't have an account? <Link to="/register">Register</Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

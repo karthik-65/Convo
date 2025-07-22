@@ -1,5 +1,3 @@
-/* Login.css */
-
 body {
   background: linear-gradient(135deg, #e0f7fa, #fffde7);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,12 +16,16 @@ body {
 .login-container {
   width: 100%;
   max-width: 420px;
+  min-height: 520px;
   padding: 30px 40px;
   background-color: #ffffff;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   text-align: center;
   animation: fadeIn 0.5s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .login-form h2 {
@@ -62,13 +64,31 @@ label {
 }
 
 .error-text {
-  text-align: left;
-  color: #e53935;
-  font-size: 0.88rem;
-  margin-top: -4px;
-  margin-bottom: 4px;
+  height: 18px;
+  font-size: 0.85rem;
+  color: red;
+  margin-top: 4px;
 }
 
+.password-wrapper {
+  position: relative;
+}
+
+.password-wrapper input {
+  padding-right: 40px;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #666;
+  font-size: 1rem;
+}
+
+/* Button */
 .login-form button {
   width: 100%;
   padding: 12px;
@@ -114,12 +134,12 @@ label {
   }
 }
 
-/* Responsive design */
 @media (max-width: 480px) {
   .login-container {
     margin: 32px 12px;
     padding: 20px 16px;
     border-radius: 8px;
+    min-height: 520px;
   }
 
   .login-form h2 {

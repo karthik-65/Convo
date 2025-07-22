@@ -1,3 +1,10 @@
+/* Base Setup */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   background: linear-gradient(135deg, #e0f7fa, #fffde7);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -5,16 +12,17 @@ body {
   padding: 0;
 }
 
-
+/* Layout Wrapper */
 .page-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh; /* full screen height */
-  padding: 16px; /* for small screens */
+  min-height: 100vh;
+  padding: 16px;
   background: linear-gradient(135deg, #e0f7fa, #fffde7);
 }
 
+/* Form Container */
 .register-container {
   width: 100%;
   max-width: 420px;
@@ -24,61 +32,68 @@ body {
   border-radius: 12px;
   text-align: center;
   animation: fadeIn 0.5s ease-in-out;
+  overflow-y: auto;
+  max-height: 95vh;
 }
-
 
 .register-container h2 {
   margin-bottom: 20px;
   color: #333;
   font-weight: 600;
+  font-size: 1.8rem;
 }
 
+/* Form Labels */
 label {
   display: block;
   text-align: left;
   margin: 10px 0 4px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #555;
 }
 
+/* Inputs */
 .register-input {
   width: 100%;
   padding: 12px;
+  padding-right: 40px;
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 1rem;
   margin-bottom: 2px;
-  box-sizing: border-box;
   transition: border 0.2s;
-  padding-right: 40px;
+  outline: none;
 }
 
 .register-input:focus {
   border-color: #007bff;
-  outline: none;
 }
 
 .register-input.error {
-  border: 2px solid #e53935;
+  border-color: #e53935;
   background-color: #fff8f8;
 }
 
+/* Error Text */
 .error-text {
   color: #e53935;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   margin-top: -4px;
-  margin-bottom: 2px;
+  margin-bottom: 6px;
   text-align: left;
   min-height: 18px;
-  max-height: 18px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  transition: all 0.3s ease;
+  line-height: 1;
+  transition: opacity 0.3s ease;
+  opacity: 1;
 }
 
+/* Password Field */
 .password-wrapper {
   position: relative;
+}
+
+.password-wrapper input {
+  padding-right: 40px;
 }
 
 .toggle-password {
@@ -97,18 +112,20 @@ label {
   justify-content: center;
 }
 
+/* Password Description */
 .password-description {
   text-align: left;
   font-size: 0.85rem;
   color: #555;
   margin-top: -4px;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   line-height: 1.4;
 }
 
+/* Button */
 .register-button {
   width: 100%;
-  margin-top: 5px;
+  margin-top: 2px;
   padding: 12px;
   font-size: 1rem;
   font-weight: 600;
@@ -124,6 +141,7 @@ label {
   background-color: #0056b3;
 }
 
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -146,6 +164,7 @@ label {
   font-family: sans-serif;
 }
 
+/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -174,15 +193,7 @@ input[type="password"] {
   -webkit-appearance: none;
 }
 
-
-@media (max-height: 500px) {
-  .page-wrapper {
-    align-items: flex-start;
-    padding-top: 32px;
-  }
-}
-
-
+/* Small screen adjustments */
 @media (max-width: 480px) {
   .register-container {
     margin: 32px 12px;
@@ -195,7 +206,7 @@ input[type="password"] {
   }
 
   label {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
   }
 
   .register-input {
@@ -229,5 +240,12 @@ input[type="password"] {
   .toggle-password {
     font-size: 1rem;
     right: 10px;
+  }
+}
+
+@media (max-height: 500px) {
+  .page-wrapper {
+    align-items: flex-start;
+    padding-top: 32px;
   }
 }
