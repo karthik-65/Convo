@@ -498,8 +498,9 @@ function Chat({ onLogout }) {
           style={{
             display: isMobileChatOpen || !isMobile ? 'flex' : 'none',
             flexDirection: 'column',
-            flex: 1,
-            minHeight: '100dvh',
+            flex:'1',
+            height: '100dvh',
+            overflow: 'hidden',
           }}
         >
           {/* Back button for mobile */}
