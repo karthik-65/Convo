@@ -51,9 +51,9 @@ function Chat({ onLogout }) {
 
     const isToday = msgDate.toDateString() === now.toDateString();
     if (isToday) {
-      return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return msgDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit',hour12: true });
     } else {
-      return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return msgDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit',hour12: true });
     }
   }
 
