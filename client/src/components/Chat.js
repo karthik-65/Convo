@@ -27,6 +27,7 @@ function Chat({ onLogout }) {
   const [previewImage, setPreviewImage] = useState(null); // { url, name }
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState(null);
+  const [lastActivityMap, setLastActivityMap] = useState({});
   const [editText, setEditText] = useState('');
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState({
@@ -110,19 +111,28 @@ function Chat({ onLogout }) {
   });
 
   //  Simplify this now:
-socket.on('receive-message', (msg) => {
-  const isActiveChat = receiverRef.current === msg.sender;
+  socket.on('receive-message', (msg) => {
+    const isActiveChat = receiverRef.current === msg.sender;
 
-  if (isActiveChat) {
-    // Just add it; refetch will update seen
-    setMessages(prev => [...prev, msg]);
-  } else {
+    if (msg.receiver === user._id) {
+  // track inbound time
+  setLastActivityMap(prev => ({
+    ...prev,
+    [msg.sender]: msg.createdAt,
+  }));
+
+  if (!isActiveChat) {
     setUnreadCounts(prev => ({
       ...prev,
       [msg.sender]: (prev[msg.sender] || 0) + 1,
     }));
+  } else {
+    setMessages(prev => [...prev, msg]);
   }
-});
+}
+
+  });
+
 
   socket.on('edit-message', ({ id, text }) => {
     setMessages(prev =>
@@ -270,6 +280,10 @@ socket.on('receive-message', (msg) => {
       setMessages(prev => [...prev, { ...savedMsg, seen: false }]);
       setMessage('');
       setTypingUsers({});
+      setLastActivityMap(prev => ({
+        ...prev,
+        [receiver]: new Date().toISOString(),
+      }));
     } catch (err) {
       console.error(err);
     }
@@ -343,7 +357,7 @@ socket.on('receive-message', (msg) => {
           <div className="chat-avatar" title={user.username}>
             {user.username.charAt(0).toUpperCase()}
           </div>
-          <span style={{ color: "#FFBC00" }}>Convo</span>
+          <span style={{ color: "#FFBC00",fontFamily: "Lora, serif", fontStyle: "italic", fontWeight: 700,fontSize:"25px" }}>Convo</span>
         </div>
         <button className="logout-button" onClick={() => setShowLogoutConfirm(true)}>Logout</button>
       </nav>
@@ -351,11 +365,11 @@ socket.on('receive-message', (msg) => {
 
        <div className="chat-body" style={{ display: 'flex', flex: 1, height: 'calc(100vh - 60px)' }}>
         <div
-    className="user-list"
-    style={{
-      display: isMobileChatOpen && isMobile ? 'none' : 'flex',
-    }}
-  >
+          className="user-list"
+          style={{
+            display: isMobileChatOpen && isMobile ? 'none' : 'flex',
+          }}
+        >
           <h3 style={{marginLeft:'15px'}}>Users</h3>
           <div style={{ padding: '8px 14px' }}>
             <input
@@ -373,7 +387,21 @@ socket.on('receive-message', (msg) => {
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px 14px' }}>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {allUsers.filter(u => u._id !== user._id && u.username.toLowerCase().includes(searchQuery.toLowerCase())).map(u => {
+            {allUsers
+            .filter(u => u._id !== user._id && u.username.toLowerCase().includes(searchQuery.toLowerCase()))
+            .sort((a, b) => {
+              const aUnread = unreadCounts[a._id] || 0;
+              const bUnread = unreadCounts[b._id] || 0;
+
+              if (aUnread > 0 && bUnread === 0) return -1;
+              if (bUnread > 0 && aUnread === 0) return 1;
+
+              const aTime = new Date(lastActivityMap[a._id] || 0).getTime();
+              const bTime = new Date(lastActivityMap[b._id] || 0).getTime();
+
+              return bTime - aTime;
+            })
+            .map(u => {
               const isOnline = onlineUsers.some(ou => ou._id === u._id);
               const unreadCount = unreadCounts[u._id] || 0;
               const isTyping = !!typingUsers?.[u._id];
@@ -471,6 +499,7 @@ socket.on('receive-message', (msg) => {
             display: isMobileChatOpen || !isMobile ? 'flex' : 'none',
             flexDirection: 'column',
             flex: 1,
+            minHeight: '100dvh',
           }}
         >
           {/* Back button for mobile */}
@@ -528,8 +557,7 @@ socket.on('receive-message', (msg) => {
                   marginBottom: '10px',
                   borderRadius: '8px',
                   backgroundColor: '#fff',
-                  minHeight: '400px',     // 
-                  height: '100%',   
+                  minHeight: 0,      
                 }}
               >
                 {(() => {
