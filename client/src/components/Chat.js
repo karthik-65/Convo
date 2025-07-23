@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import socket from '../socket';  // your socket.io client instance
+import socket from '../socket';  
 import axios from 'axios';
 import { Paperclip } from 'lucide-react';
 import { ArrowLeft,Send } from 'lucide-react';
-import EditMessage from './EditMessage'; // adjust path as needed
+import EditMessage from './EditMessage';
 import axiosInstance from '../api/axiosInstance';
 import './Chat.css';
 
@@ -83,7 +83,7 @@ function Chat({ onLogout }) {
   useEffect(() => {
   if (!user?._id) return;
 
-  socket.emit('join', user._id); // let server know you're online
+  socket.emit('join', user._id); 
 
   socket.on('online-users', (onlineUserIds) => {
     setOnlineUsers(allUsers.filter(u => onlineUserIds.includes(u._id)));
@@ -110,7 +110,6 @@ function Chat({ onLogout }) {
     });
   });
 
-  //  Simplify this now:
   socket.on('receive-message', (msg) => {
     const isActiveChat = receiverRef.current === msg.sender;
 
@@ -294,7 +293,7 @@ function Chat({ onLogout }) {
 
     const now = Date.now();
     if (val.trim().length > 0 && now - lastTypingEmitRef.current > 1000) {
-     console.log('🟢 EMIT typing:', { sender: user._id, receiver });
+     console.log('EMIT typing:', { sender: user._id, receiver });
       socket.emit('typing', { sender: user._id, receiver });
       lastTypingEmitRef.current = now;
     } else if (val.trim().length === 0) {
@@ -825,6 +824,12 @@ function Chat({ onLogout }) {
                   const val = e.target.value;
                   setMessage(val);
                   handleTyping(val);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendMessage();
+                  }
                 }}
                 placeholder="Type your message..."
                 style={{
