@@ -10,13 +10,13 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 16px;
+  padding: 40px;
 }
 
 .login-container {
   width: 100%;
   max-width: 420px;
-  min-height: 520px;
+  min-height: 400px;
   padding: 30px 40px;
   background-color: #ffffff;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
@@ -94,7 +94,6 @@ label {
   padding: 12px;
   font-size: 1rem;
   font-weight: 600;
-  margin-top: 2px;
   background-color: #007bff;
   color: #fff;
   border: none;
@@ -136,10 +135,10 @@ label {
 
 @media (max-width: 480px) {
   .login-container {
-    margin: 32px 12px;
+    margin: 32px 5px;
     padding: 20px 16px;
     border-radius: 8px;
-    min-height: 520px;
+    min-height: 400px;
   }
 
   .login-form h2 {
