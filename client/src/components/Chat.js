@@ -343,6 +343,21 @@ function Chat({ onLogout }) {
       console.error('Delete failed:', err);
     }
   };
+
+  useEffect(() => {
+    const setViewportHeight = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+
+    return () => {
+      window.removeEventListener('resize', setViewportHeight);
+    };
+  }, []);
+
     
   const isMobile = window.innerWidth < 768;
   const isReceiverOnline = onlineUsers.some(u => u._id === receiver);
