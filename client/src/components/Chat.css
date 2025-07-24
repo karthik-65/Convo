@@ -96,6 +96,15 @@
   object-fit: cover;
 }
 
+.chat-image-preview-modal {
+  max-width: 70vw;
+  max-height: 75vh;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .chat-body {

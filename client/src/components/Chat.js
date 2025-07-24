@@ -1130,8 +1130,8 @@ function Chat({ onLogout }) {
             style={{
               maxWidth: '100vw',
               maxHeight: '85vh',
-              width: 'auto',
-              height: 'auto',
+              width: '100%',
+              height: '100%',
               objectFit: 'contain',
               borderRadius: '8px',
               display: 'block',
