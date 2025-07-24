@@ -356,6 +356,7 @@ function Chat({ onLogout }) {
 
   const handleImageClick = async (url, name) => {
     try {
+      const secureUrl = url.startsWith('http://') ? url.replace('http://', 'https://') : url;
       let blobUrl = imageCache.current.get(url);
 
       if (!blobUrl) {
@@ -739,7 +740,7 @@ function Chat({ onLogout }) {
                                   {/* Image Preview */}
                                   {msg.fileType.startsWith('image') && (
                                     <img
-                                      src={msg.file}
+                                      src={msg.file?.startsWith('http://') ? msg.file.replace('http://', 'https://') : msg.file}
                                       alt="preview"
                                       className="chat-image-preview"
                                     />
@@ -1124,9 +1125,10 @@ function Chat({ onLogout }) {
             </button>
 
           <img
-            src={previewImage.url}
-            alt="Preview"
-              className="chat-image-preview-modal"
+            src={previewImage.url?.startsWith('http://') 
+              ? previewImage.url.replace('http://', 'https://') 
+              : previewImage.url}            alt="Preview"
+            className="chat-image-preview-modal"
             style={{
               maxWidth: '100vw',
               maxHeight: '85vh',

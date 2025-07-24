@@ -85,15 +85,19 @@ const upload = multer({ storage });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+
   res.json({
     fileId: req.file.id,
     filename: req.file.filename,
     originalName: req.file.metadata.originalname,
     size: req.file.size,
     type: req.file.metadata.mimetype,
-    fileUrl: `${req.protocol}://${req.get('host')}/file/${req.file.filename}`,
+    fileUrl: `${protocol}://${req.get('host')}/file/${req.file.filename}`,
   });
 });
+
 
 app.get('/file/:filename', async (req, res) => {
   try {
