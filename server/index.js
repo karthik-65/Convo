@@ -85,26 +85,20 @@ const upload = multer({ storage });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-
   res.json({
     fileId: req.file.id,
     filename: req.file.filename,
     originalName: req.file.metadata.originalname,
     size: req.file.size,
     type: req.file.metadata.mimetype,
-    fileUrl: `${protocol}://${req.get('host')}/file/${req.file.filename}`,
+    fileUrl: `${req.protocol}://${req.get('host')}/file/${req.file.filename}`,
   });
 });
-
 
 app.get('/file/:filename', async (req, res) => {
   try {
     const bucket = new GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
     const stream = bucket.openDownloadStreamByName(req.params.filename);
-
-    res.set('Content-Type', file.metadata?.mimetype || 'application/octet-stream');
 
     stream.on('error', () => res.status(404).json({ message: 'File not found' }));
     stream.pipe(res);
