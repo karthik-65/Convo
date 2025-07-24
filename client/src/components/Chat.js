@@ -37,7 +37,6 @@ function Chat({ onLogout }) {
     messageId: null
   });
   const isAutoScroll = useRef(true);
-  const imageCache = useRef(new Map()); 
 
   // Keep the latest receiver in a ref to use inside callbacks
   useEffect(() => {
@@ -353,36 +352,6 @@ function Chat({ onLogout }) {
       console.error('Delete failed:', err);
     }
   };
-
-  const handleImageClick = async (url, name) => {
-    try {
-      const secureUrl = url.startsWith('http://') ? url.replace('http://', 'https://') : url;
-      let blobUrl = imageCache.current.get(url);
-
-      if (!blobUrl) {
-        const response = await fetch(url, { mode: 'cors' });
-        const blob = await response.blob();
-        blobUrl = URL.createObjectURL(blob);
-
-        // Save in cache
-        imageCache.current.set(url, blobUrl);
-
-        // Trigger download (only first time)
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-
-      // Set preview with cached blob
-      setPreviewImage({ url: blobUrl, name });
-    } catch (err) {
-      console.error('Image download & preview failed:', err);
-    }
-  };
-
 
   useEffect(() => {
     const setViewportHeight = () => {
@@ -718,7 +687,7 @@ function Chat({ onLogout }) {
                                       : rawName;
 
                                     if (msg.fileType.startsWith('image')) {
-                                      handleImageClick(msg.file, finalName);
+                                        setPreviewImage({ url: msg.file, name: finalName });
                                     } else {
                                       // Open all non-images (PDF, ZIP, DOC, etc.) in new tab
                                       window.open(msg.file, '_blank');
@@ -740,7 +709,7 @@ function Chat({ onLogout }) {
                                   {/* Image Preview */}
                                   {msg.fileType.startsWith('image') && (
                                     <img
-                                      src={msg.file?.startsWith('http://') ? msg.file.replace('http://', 'https://') : msg.file}
+                                      src={msg.file}
                                       alt="preview"
                                       className="chat-image-preview"
                                     />
@@ -1125,9 +1094,8 @@ function Chat({ onLogout }) {
             </button>
 
           <img
-            src={previewImage.url?.startsWith('http://') 
-              ? previewImage.url.replace('http://', 'https://') 
-              : previewImage.url}            alt="Preview"
+            src={previewImage.url}            
+            alt="Preview"
             className="chat-image-preview-modal"
             style={{
               maxWidth: '100vw',
