@@ -87,6 +87,25 @@
   padding: 10px;
 }
 
+
+/* Default image style (desktop) */
+.chat-image-preview {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+/* Mobile-specific fixed size */
+@media (max-width: 767px) {
+  .chat-image-preview {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+  }
+}
+
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .chat-body {

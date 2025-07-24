@@ -705,12 +705,7 @@ function Chat({ onLogout }) {
                                     <img
                                       src={msg.file}
                                       alt="preview"
-                                      style={{
-                                        maxWidth: '100%',
-                                        maxHeight: '200px',
-                                        borderRadius: '6px',
-                                        objectFit: 'cover',
-                                      }}
+                                      className="chat-image-preview"
                                     />
                                   )}
 
