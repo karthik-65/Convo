@@ -96,16 +96,6 @@
   object-fit: cover;
 }
 
-/* Mobile-specific fixed size */
-@media (max-width: 767px) {
-  .chat-image-preview {
-    width: 150px;
-    height: 150px;
-    object-fit: cover;
-  }
-}
-
-
 /* Responsive Design */
 @media (max-width: 768px) {
   .chat-body {
@@ -121,5 +111,16 @@
   .chat-area {
     width: 100%;
     padding-left: 0;
+  }
+
+  .chat-image-preview {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+  }
+
+  .chat-image-preview-modal {
+    max-width: 90vw;
+    max-height: 75vh;
   }
 }

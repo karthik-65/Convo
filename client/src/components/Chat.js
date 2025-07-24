@@ -37,7 +37,7 @@ function Chat({ onLogout }) {
     messageId: null
   });
   const isAutoScroll = useRef(true);
-
+  const imageCache = useRef(new Map()); 
 
   // Keep the latest receiver in a ref to use inside callbacks
   useEffect(() => {
@@ -302,17 +302,27 @@ function Chat({ onLogout }) {
   };
 
   useEffect(() => {
-  const handleClickOutside = () => {
-    if (contextMenu.visible) {
-      setContextMenu({ ...contextMenu, visible: false });
-    }
-  };
+    const handleCloseContextMenu = (e) => {
+      if (contextMenu.visible) {
+        setContextMenu(prev => ({ ...prev, visible: false }));
+      }
+    };
 
-  window.addEventListener('click', handleClickOutside);
-  return () => {
-    window.removeEventListener('click', handleClickOutside);
-  };
-  }, [contextMenu]);
+    const chatBox = chatBoxRef.current;
+
+    window.addEventListener('mousedown', handleCloseContextMenu);
+    window.addEventListener('touchstart', handleCloseContextMenu);
+    window.addEventListener('resize', handleCloseContextMenu);
+    if (chatBox) chatBox.addEventListener('scroll', handleCloseContextMenu);
+
+    return () => {
+      window.removeEventListener('mousedown', handleCloseContextMenu);
+      window.removeEventListener('touchstart', handleCloseContextMenu);
+      window.removeEventListener('resize', handleCloseContextMenu);
+      if (chatBox) chatBox.removeEventListener('scroll', handleCloseContextMenu);
+    };
+  }, [contextMenu.visible]);
+
 
   const handleUpdateMessage = async (id, newText) => {
     if (!newText.trim()) return;
@@ -343,6 +353,35 @@ function Chat({ onLogout }) {
       console.error('Delete failed:', err);
     }
   };
+
+  const handleImageClick = async (url, name) => {
+    try {
+      let blobUrl = imageCache.current.get(url);
+
+      if (!blobUrl) {
+        const response = await fetch(url, { mode: 'cors' });
+        const blob = await response.blob();
+        blobUrl = URL.createObjectURL(blob);
+
+        // Save in cache
+        imageCache.current.set(url, blobUrl);
+
+        // Trigger download (only first time)
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      // Set preview with cached blob
+      setPreviewImage({ url: blobUrl, name });
+    } catch (err) {
+      console.error('Image download & preview failed:', err);
+    }
+  };
+
 
   useEffect(() => {
     const setViewportHeight = () => {
@@ -678,10 +717,7 @@ function Chat({ onLogout }) {
                                       : rawName;
 
                                     if (msg.fileType.startsWith('image')) {
-                                      setPreviewImage({
-                                        url: msg.file,
-                                        name: finalName,
-                                      });
+                                      handleImageClick(msg.file, finalName);
                                     } else {
                                       // Open all non-images (PDF, ZIP, DOC, etc.) in new tab
                                       window.open(msg.file, '_blank');
@@ -1067,7 +1103,7 @@ function Chat({ onLogout }) {
               maxHeight: '90%',
             }}
             onClick={(e) => e.stopPropagation()}
-          >
+          >{/* Download Button */}
             <button
               onClick={() => setPreviewImage(null)}
               style={{
@@ -1087,17 +1123,22 @@ function Chat({ onLogout }) {
               </svg>
             </button>
 
-            <img
-              src={previewImage.url}
-              alt="Preview"
-              style={{
-                width: '100%',
-                height: 'auto',
-                borderRadius: '8px',
-                maxHeight: '100%',
-                objectFit: 'contain',
-              }}
-            />
+          <img
+            src={previewImage.url}
+            alt="Preview"
+              className="chat-image-preview-modal"
+            style={{
+              maxWidth: '100vw',
+              maxHeight: '85vh',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              display: 'block',
+              margin: '0 auto',
+            }}
+          />
+
           </div>
         </div>
       )}
