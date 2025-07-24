@@ -104,10 +104,7 @@ app.get('/file/:filename', async (req, res) => {
     const bucket = new GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
     const stream = bucket.openDownloadStreamByName(req.params.filename);
 
-    res.set({
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${req.params.filename.split('-').slice(1).join('-')}"`
-    });
+    res.set('Content-Type', file.metadata?.mimetype || 'application/octet-stream');
 
     stream.on('error', () => res.status(404).json({ message: 'File not found' }));
     stream.pipe(res);
