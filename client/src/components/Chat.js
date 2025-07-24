@@ -560,24 +560,38 @@ function Chat({ onLogout }) {
           </div>
           {receiver ? (
             <>
-              
               <div
                 id="chat-box"
                 ref={chatBoxRef}
                 style={{
-                  flex:1,
+                  flex: 1,
                   overflowY: 'auto',
                   border: '1px solid #ccc',
                   padding: '10px',
                   marginBottom: '10px',
                   borderRadius: '8px',
                   backgroundColor: '#fff',
-                  minHeight: 0,      
+                  minHeight: 0,
                 }}
               >
-                {(() => {
-                  let lastMessageDate = null;
-                  return messages.map((msg, i) => {
+                {messages.length === 0 ? (
+                  <div
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#999',
+                      fontSize: '1.1rem',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    No messages yet
+                  </div>
+                ) : (
+                  (() => {
+                    let lastMessageDate = null;
+                    return messages.map((msg, i) => {
                     const msgDate = new Date(msg.createdAt);
                     const msgDateStr = msgDate.toDateString();
 
@@ -770,9 +784,11 @@ function Chat({ onLogout }) {
                         </div>
                       </React.Fragment>
                     );
-                  });
-                })()}
+                    });
+                  })()
+                )}
               </div>
+
 
               {/* Floating selected file container */}
               {file && (
@@ -912,7 +928,19 @@ function Chat({ onLogout }) {
 
             </>
           ) : (
-            <p>Select a user to start chatting</p>
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.2rem',
+                color: '#666',
+                fontStyle: 'italic',
+              }}
+            >
+              Select a user to start chatting
+            </div>
           )}
         </div>
       </div>
