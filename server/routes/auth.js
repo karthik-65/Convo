@@ -58,16 +58,23 @@ router.post('/register', async (req, res) => {
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '30d' });
 
+    const userPayload = {
+      _id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      bio: user.bio
+    };
+
+    if (req.io) {
+      req.io.emit('new-user-registered', userPayload);
+    }
+
     res.json({
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        bio: user.bio
-      },
+      user: userPayload,
       token
     });
+
   } catch (err) {
     console.error('Register Error:', err);
     res.status(500).json({ message: err.message || 'Server error during registration' });

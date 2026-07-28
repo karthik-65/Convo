@@ -282,10 +282,14 @@ function Chat({ onLogout }) {
     });
 
     socket.on('receive-message', (msg) => {
-      const isActiveChat = receiverRef.current === msg.sender;
+      const myId = currentUser._id?.toString();
+      const msgReceiver = msg.receiver?.toString();
+      const msgSender = msg.sender?.toString();
 
-      if (msg.receiver === currentUser._id) {
-        const senderObj = allUsers.find(u => u._id === msg.sender);
+      if (msgReceiver === myId) {
+        const isActiveChat = receiverRef.current?.toString() === msgSender;
+
+        const senderObj = allUsers.find(u => u._id?.toString() === msgSender);
         const senderName = senderObj?.username || 'New Message';
         const msgText = msg.file ? (msg.text ? `${msg.text} (Attachment)` : 'Sent an attachment') : (msg.text || 'New message');
 
@@ -297,13 +301,13 @@ function Chat({ onLogout }) {
 
         setLastActivityMap(prev => ({
           ...prev,
-          [msg.sender]: msg.createdAt,
+          [msgSender]: msg.createdAt || new Date().toISOString(),
         }));
 
         if (!isActiveChat) {
           setUnreadCounts(prev => ({
             ...prev,
-            [msg.sender]: (prev[msg.sender] || 0) + 1,
+            [msgSender]: (prev[msgSender] || 0) + 1,
           }));
         } else {
           setMessages(prev => [...prev, msg]);
@@ -323,7 +327,7 @@ function Chat({ onLogout }) {
 
     socket.on('receive-chat-request', (chatReq) => {
       setChatRequests(prev => [...prev.filter(r => r._id !== chatReq._id), chatReq]);
-      const senderObj = allUsers.find(u => u._id === chatReq.sender);
+      const senderObj = allUsers.find(u => u._id?.toString() === chatReq.sender?.toString());
       const senderName = senderObj?.username || 'Someone';
       soundManager.playDeviceNotification({
         title: 'New Chat Request',
@@ -331,7 +335,6 @@ function Chat({ onLogout }) {
         icon: senderObj?.avatar || '/chat.png'
       });
     });
-
 
     socket.on('update-chat-request', (chatReq) => {
       setChatRequests(prev => prev.map(r => r._id === chatReq._id ? chatReq : r));
@@ -345,6 +348,13 @@ function Chat({ onLogout }) {
       setAllUsers(prev => prev.map(u => u._id === updatedUser._id ? { ...u, ...updatedUser } : u));
     });
 
+    socket.on('new-user-registered', (newUser) => {
+      setAllUsers(prev => {
+        if (prev.some(u => u._id?.toString() === newUser._id?.toString())) return prev;
+        return [...prev, newUser];
+      });
+    });
+
     return () => {
       socket.off('connect');
       socket.off('online-users');
@@ -356,8 +366,10 @@ function Chat({ onLogout }) {
       socket.off('receive-chat-request');
       socket.off('update-chat-request');
       socket.off('update-user-profile');
+      socket.off('new-user-registered');
     };
   }, [currentUser, allUsers]);
+
 
   // Seen status listener
   useEffect(() => {
@@ -440,7 +452,8 @@ function Chat({ onLogout }) {
 
   const fetchMessages = async (receiverId) => {
     setReceiver(receiverId);
-    if (window.innerWidth < 768) {
+    setUnreadCounts(prev => ({ ...prev, [receiverId]: 0 }));
+    if (isMobile) {
       setIsMobileChatOpen(true);
     }
     try {
@@ -450,6 +463,7 @@ function Chat({ onLogout }) {
       console.error('Error fetching messages:', err);
     }
   };
+
 
   const sendMessage = async (overrideFile = null, overrideText = null) => {
     if (!receiver) return;

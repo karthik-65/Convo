@@ -124,9 +124,15 @@ app.get('/file/:filename', async (req, res) => {
 });
 
 
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/chat-requests', chatRequestRoutes);
+
 
 app.get('/api/users', async (req, res) => {
   try {
