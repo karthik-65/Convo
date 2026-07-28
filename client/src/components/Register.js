@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, CheckCircle2, Sun, Moon, MessageSquare } from 'lucide-react';
+import './Login.css'; // Shared auth styles
 import './Register.css';
-import { useNavigate } from 'react-router-dom';
-
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 
 function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
   const [usernameError, setUsernameError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -21,8 +22,18 @@ function Register() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   const validateUsername = (name) => {
     const regex = /^[A-Za-z][A-Za-z0-9]*$/;
@@ -34,7 +45,8 @@ function Register() {
     return regex.test(pwd);
   };
 
-  const handleRegister = async () => {
+  const handleRegister = async (e) => {
+    e.preventDefault();
     setUsernameError('');
     setEmailError('');
     setPasswordError('');
@@ -85,8 +97,11 @@ function Register() {
 
     if (!isValid) return;
 
+    setIsLoading(true);
+
     try {
-      await axios.post(`${process.env.REACT_APP_API_BASE}/auth/register`, {
+      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
+      await axios.post(`${apiBase}/auth/register`, {
         username,
         email,
         password,
@@ -96,7 +111,7 @@ function Register() {
       setTimeout(() => {
         setShowSuccessModal(false);
         navigate('/login');
-      }, 2000);
+      }, 1800);
     } catch (err) {
       const message = err.response?.data?.message || 'Registration failed';
 
@@ -107,110 +122,152 @@ function Register() {
       } else {
         setGeneralError(message);
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="page-wrapper">
-    <div className="register-container">
-      <h2>Register</h2>
+    <div className="auth-page-wrapper">
+      <div className="auth-bg-orb-1" />
+      <div className="auth-bg-orb-2" />
 
-      <label>Username</label>
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        maxLength={16}
-        className={`register-input ${usernameError ? 'error' : ''}`}
-        placeholder="Username"
-      />
-      <div className="error-text" style={{ visibility: usernameError ? 'visible' : 'hidden' }}>
-        {usernameError || 'placeholder'}
-      </div>
-
-      <label>Email</label>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className={`register-input ${emailError ? 'error' : ''}`}
-        placeholder="Email"
-      />
-      <div className="error-text" style={{ visibility: emailError ? 'visible' : 'hidden' }}>
-        {emailError || 'placeholder'}
-      </div>
-
-      <label>Password</label>
-      <div className="password-wrapper">
-        <input
-          type={showPassword ? 'text' : 'password'}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={`register-input ${passwordError ? 'error' : ''}`}
-          placeholder="Enter Password"
-        />
-        <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
-          <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
-        </span>
-      </div>
-      <div className="password-description">
-        Password must contain at least 8 characters, 1 uppercase letter, 1 number, and 1 special character (@, #, $, *, !).
-      </div>
-      <div className="error-text" style={{ visibility: passwordError ? 'visible' : 'hidden' }}>
-        {passwordError || 'placeholder'}
-      </div>
-
-      <label>Confirm Password</label>
-      <div className="password-wrapper">
-        <input
-          type={showConfirmPassword ? 'text' : 'password'}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className={`register-input ${confirmPasswordError ? 'error' : ''}`}
-          placeholder="Confirm Password"
-        />
-        <span
-          className="toggle-password"
-          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-        >
-          <FontAwesomeIcon icon={showConfirmPassword ? faEyeSlash : faEye} />
-        </span>
-      </div>
-      <div className="error-text" style={{ visibility: confirmPasswordError ? 'visible' : 'hidden' }}>
-        {confirmPasswordError || 'placeholder'}
-      </div>
-
-      <div className="error-text" style={{ visibility: generalError ? 'visible' : 'hidden' }}>
-        {generalError || 'placeholder'}
-      </div>
-
-      <button onClick={handleRegister} className="register-button">
-        Register
+      <button className="auth-theme-toggle" onClick={toggleTheme} title="Toggle theme">
+        {theme === 'dark' ? <Sun size={16} color="#f59e0b" /> : <Moon size={16} color="#6366f1" />}
+        <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
       </button>
 
-      {showSuccessModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="32"
-                height="32"
-                viewBox="0 0 512 512"
-              >
-                <circle cx="256" cy="256" r="256" fill="#00C000" />
-                <path
-                  d="M378.305 164.736c10.033 10.033 10.033 26.29 0 36.323L229.013 350.352c-10.033 10.033-26.29 10.033-36.323 0l-72.995-72.995c-10.033-10.033-10.033-26.29 0-36.323s26.29-10.033 36.323 0l54.834 54.834L341.982 164.736c10.033-10.033 26.29-10.033 36.323 0z"
-                  fill="#fff"
-                />
-              </svg>
-              Registration Successful!
-            </h3>
-            <p>Redirecting to login...</p>
+      <motion.div
+        className="auth-card"
+        initial={{ opacity: 0, y: 25, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
+        <div className="auth-card-header">
+          <div className="auth-brand">
+            <div className="auth-brand-logo">
+              <MessageSquare size={24} />
+            </div>
+            <h1 className="auth-brand-title">Convo</h1>
           </div>
+          <p className="auth-subtitle">Create a new account to join Convo</p>
+        </div>
+
+        <form onSubmit={handleRegister} className="auth-form">
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <div className="input-wrapper">
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={16}
+                className={`auth-input ${usernameError ? 'error-input' : ''}`}
+                placeholder="Choose a username"
+              />
+              <User size={18} className="input-icon" />
+            </div>
+            <div className="field-error">{usernameError}</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <div className="input-wrapper">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={`auth-input ${emailError ? 'error-input' : ''}`}
+                placeholder="name@example.com"
+              />
+              <Mail size={18} className="input-icon" />
+            </div>
+            <div className="field-error">{emailError}</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <div className="input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`auth-input ${passwordError ? 'error-input' : ''}`}
+                placeholder="Create a strong password"
+              />
+              <Lock size={18} className="input-icon" />
+              <button
+                type="button"
+                className="toggle-password-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <div className="password-requirements">
+              Requires 8+ characters, 1 uppercase letter, 1 number, and 1 special char (@, #, $, *, !).
+            </div>
+            <div className="field-error">{passwordError}</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Confirm Password</label>
+            <div className="input-wrapper">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={`auth-input ${confirmPasswordError ? 'error-input' : ''}`}
+                placeholder="Confirm your password"
+              />
+              <Lock size={18} className="input-icon" />
+              <button
+                type="button"
+                className="toggle-password-btn"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <div className="field-error">{confirmPasswordError}</div>
+          </div>
+
+          {generalError && <div className="field-error" style={{ textAlign: 'center' }}>{generalError}</div>}
+
+          <button type="submit" className="auth-submit-btn" disabled={isLoading}>
+            {isLoading ? (
+              <span>Creating account...</span>
+            ) : (
+              <>
+                <span>Register</span>
+                <UserPlus size={18} />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Already have an account? <Link to="/login">Sign In</Link>
+        </div>
+      </motion.div>
+
+      {showSuccessModal && (
+        <div className="success-modal-overlay">
+          <motion.div
+            className="success-modal-card"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+          >
+            <div className="success-icon-badge">
+              <CheckCircle2 size={36} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: '1.4rem' }}>Registration Successful!</h3>
+            <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Redirecting you to login...</p>
+          </motion.div>
         </div>
       )}
-    </div>
     </div>
   );
 }

@@ -1,17 +1,23 @@
 import React from 'react';
+import { getUserGradient, getUserInitials } from '../utils/avatar';
 
 function UserList({ users, currentUserId, onSelectUser }) {
   return (
-    <ul>
+    <ul className="users-scroll-area" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
       {users
         .filter(u => u._id !== currentUserId)
         .map(user => (
           <li
             key={user._id}
             onClick={() => onSelectUser(user._id)}
-            style={{ cursor: 'pointer', margin: '5px 0' }}
+            className="user-item-card"
           >
-            {user.username}
+            <div className="user-item-left">
+              <div className="avatar-circle" style={{ background: getUserGradient(user.username) }}>
+                {getUserInitials(user.username)}
+              </div>
+              <span className="user-name-text">{user.username}</span>
+            </div>
           </li>
         ))}
     </ul>

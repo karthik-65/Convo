@@ -12,17 +12,17 @@ const path = require('path');
 const Message = require('./models/Message');
 const authRoutes = require('./routes/auth');
 const messageRoutes = require('./routes/messages');
+const chatRequestRoutes = require('./routes/chatRequests');
 const User = require('./models/User');
 
 dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Update this list to match actual frontend domains
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://convo-client-hozd.onrender.com', 
-];
+// Read allowed origins from env var (comma-separated)
+const allowedOrigins = (process.env.CLIENT_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
 
 // Apply CORS for REST API
 app.use(cors({
@@ -111,10 +111,11 @@ app.get('/file/:filename', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/chat-requests', chatRequestRoutes);
 
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await User.find({}, '_id username');
+    const users = await User.find({}, '_id username email avatar bio');
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -127,6 +128,22 @@ io.on('connection', (socket) => {
   socket.on('join', (userId) => {
     users[userId] = socket.id;
     io.emit('online-users', Object.keys(users));
+  });
+
+  socket.on('update-user-profile', (updatedUser) => {
+    io.emit('update-user-profile', updatedUser);
+  });
+
+  socket.on('send-chat-request', (chatReq) => {
+    const receiverSocket = users[chatReq.receiver];
+    if (receiverSocket) io.to(receiverSocket).emit('receive-chat-request', chatReq);
+  });
+
+  socket.on('respond-chat-request', (chatReq) => {
+    const senderSocket = users[chatReq.sender];
+    const receiverSocket = users[chatReq.receiver];
+    if (senderSocket) io.to(senderSocket).emit('update-chat-request', chatReq);
+    if (receiverSocket) io.to(receiverSocket).emit('update-chat-request', chatReq);
   });
 
   socket.on('send-message', (msg) => {

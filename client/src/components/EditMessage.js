@@ -1,41 +1,36 @@
 import React, { useState } from 'react';
+import { Check, X } from 'lucide-react';
 
 function EditMessage({ initialText, onSave, onCancel }) {
   const [editText, setEditText] = useState(initialText || '');
 
   return (
-    <div>
+    <div className="edit-message-container">
       <input
+        type="text"
         value={editText}
         onChange={(e) => setEditText(e.target.value)}
-        style={{ width: '100%', padding: '6px', borderRadius: '4px' }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSave(editText);
+          if (e.key === 'Escape') onCancel();
+        }}
+        className="edit-message-input"
+        autoFocus
       />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+      <div className="edit-message-actions">
         <button
+          className="edit-btn save"
           onClick={() => onSave(editText)}
-          style={{
-            backgroundColor: '#28a745',
-            color: '#fff',
-            border: 'none',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          title="Save changes"
         >
-          Save
+          <Check size={14} /> Save
         </button>
         <button
+          className="edit-btn cancel"
           onClick={onCancel}
-          style={{
-            backgroundColor: '#6c757d',
-            color: '#fff',
-            border: 'none',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          title="Cancel editing"
         >
-          Cancel
+          <X size={14} /> Cancel
         </button>
       </div>
     </div>
