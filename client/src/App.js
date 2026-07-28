@@ -14,31 +14,32 @@ function App() {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
-    setLoading(false); // Done checking
+    setLoading(false);
   }, []);
 
   const handleLogout = () => {
     localStorage.clear();
     setUser(null);
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
-  if (loading) return null; // Don't render routes until user is checked
+  if (loading) return null;
 
   return (
     <Routes>
       <Route
         path="/"
-        element={user ? <Chat onLogout={handleLogout} /> : <Navigate to="/login" />}
+        element={user ? <Chat onLogout={handleLogout} /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/login"
-        element={<Login setUser={setUser} />}
+        element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
       />
       <Route
         path="/register"
-        element={<Register setUser={setUser} />}
+        element={user ? <Navigate to="/" replace /> : <Register setUser={setUser} />}
       />
+      <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
   );
 }

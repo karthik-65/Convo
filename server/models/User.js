@@ -6,8 +6,10 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   avatar: { type: String, default: '' },
-  bio: { type: String, default: 'Hey there! I am using Convo.' }
+  bio: { type: String, default: 'Hey there! I am using Convo.' },
+  tokenVersion: { type: Number, default: 0 }
 }, { timestamps: true });
+
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

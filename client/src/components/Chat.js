@@ -76,6 +76,8 @@ function Chat({ onLogout }) {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState({});
+
 
   // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -121,6 +123,22 @@ function Chat({ onLogout }) {
       window.removeEventListener('orientationchange', handleResize);
     };
   }, []);
+
+  // Mobile Hardware / Gesture Back Button handling: prevents logout on back press
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = (e) => {
+      window.history.pushState(null, '', window.location.href);
+      if (isMobileChatOpen) {
+        setIsMobileChatOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isMobileChatOpen]);
+
 
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -355,6 +373,13 @@ function Chat({ onLogout }) {
       });
     });
 
+    socket.on('force-logout', (data) => {
+      alert(data?.message || 'You have been logged out because your account was accessed on another device.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    });
+
     return () => {
       socket.off('connect');
       socket.off('online-users');
@@ -367,7 +392,9 @@ function Chat({ onLogout }) {
       socket.off('update-chat-request');
       socket.off('update-user-profile');
       socket.off('new-user-registered');
+      socket.off('force-logout');
     };
+
   }, [currentUser, allUsers]);
 
 
@@ -679,7 +706,8 @@ function Chat({ onLogout }) {
   return (
     <div className="chat-container">
       {/* NAVBAR */}
-      <nav className="chat-navbar">
+      <nav className="chat-navbar" style={{ display: isMobile && isMobileChatOpen ? 'none' : 'flex' }}>
+
         <div className="chat-logo">
           <div className="chat-app-icon">
             <img src="/chat.png" alt="Convo" className="brand-logo-img" />
@@ -764,9 +792,10 @@ function Chat({ onLogout }) {
             ) : (
               friendUsers.map(u => {
                 const isOnline = onlineUsers.some(ou => ou._id === u._id);
-                const unreadCount = unreadCounts[u._id] || 0;
+                const unreadCount = unreadCounts[u._id?.toString()] || 0;
                 const isTyping = !!typingUsers?.[u._id];
                 const isSelected = receiver === u._id;
+
 
                 return (
                   <motion.div

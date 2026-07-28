@@ -147,9 +147,17 @@ const users = {};
 
 io.on('connection', (socket) => {
   socket.on('join', (userId) => {
+    if (!userId) return;
+    const existingSocketId = users[userId];
+    if (existingSocketId && existingSocketId !== socket.id) {
+      io.to(existingSocketId).emit('force-logout', {
+        message: 'You have been logged out because your account logged in on another device.'
+      });
+    }
     users[userId] = socket.id;
     io.emit('online-users', Object.keys(users));
   });
+
 
   socket.on('update-user-profile', (updatedUser) => {
     io.emit('update-user-profile', updatedUser);

@@ -59,7 +59,8 @@ function Login({ setUser }) {
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       setUser(res.data.user);
-      navigate('/');
+      navigate('/', { replace: true });
+
     } catch (err) {
       console.error('Login error:', err);
       const rawMessage = (err.response?.data?.message || err.message || '').toLowerCase();
