@@ -668,7 +668,7 @@ function Chat({ onLogout }) {
       <nav className="chat-navbar">
         <div className="chat-logo">
           <div className="chat-app-icon">
-            <MessageSquare size={22} />
+            <img src="/chat.png" alt="Convo" className="brand-logo-img" />
           </div>
           <span className="chat-app-title">Convo</span>
         </div>

@@ -19,20 +19,34 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Read allowed origins from env var (comma-separated)
-const allowedOrigins = (process.env.CLIENT_ORIGINS || 'http://localhost:3000')
-  .split(',')
-  .map(o => o.trim());
+// Read allowed origins from env var or default list
+const allowedOrigins = process.env.CLIENT_ORIGINS
+  ? process.env.CLIENT_ORIGINS.split(',').map(o => o.trim())
+  : [
+      'http://localhost:3000',
+      'https://convo-client-hozd.onrender.com',
+    ];
+
+const checkCorsOrigin = (origin, callback) => {
+  // Allow requests with no origin (like mobile native apps, curl, server-to-server)
+  if (!origin) return callback(null, true);
+
+  // If wildcard '*' is set or origin is explicitly in allowedOrigins list
+  if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+
+  // Failsafe match for Render domains and localhost
+  if (origin.endsWith('.onrender.com') || origin.includes('localhost')) {
+    return callback(null, true);
+  }
+
+  return callback(null, false);
+};
 
 // Apply CORS for REST API
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: checkCorsOrigin,
   credentials: true,
 }));
 
@@ -49,17 +63,12 @@ app.use((req, res, next) => {
 
 const io = socketIo(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Socket.IO CORS Error: Not allowed'));
-      }
-    },
+    origin: checkCorsOrigin,
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
+
 
 
 if (!process.env.MONGO_URI) {

@@ -146,7 +146,7 @@ function Register() {
         <div className="auth-card-header">
           <div className="auth-brand">
             <div className="auth-brand-logo">
-              <MessageSquare size={24} />
+              <img src="/chat.png" alt="Convo" className="brand-logo-img" />
             </div>
             <h1 className="auth-brand-title">Convo</h1>
           </div>

@@ -40,7 +40,16 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+  flex-shrink: 0;
+  overflow: hidden;
 }
+
+.chat-app-icon .brand-logo-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
 
 .chat-app-title {
   font-size: 1.4rem;
