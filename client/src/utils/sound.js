@@ -1,19 +1,13 @@
-// Web Audio API notification sound generator
+// Native Device System Notification & Vibration Sound Manager
 class SoundManager {
   constructor() {
-    this.audioCtx = null;
     this.muted = localStorage.getItem('chat_muted') === 'true';
+    this.requestPermission();
   }
 
-  initContext() {
-    if (!this.audioCtx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        this.audioCtx = new AudioContext();
-      }
-    }
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+  requestPermission() {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
     }
   }
 
@@ -27,33 +21,43 @@ class SoundManager {
     return this.muted;
   }
 
-  playMessageSound() {
+  // Triggers native device system notification sound, banner, and mobile vibration
+  playDeviceNotification({ title = 'Convo', body = 'You have a new message', icon = '/chat.png' } = {}) {
     if (this.muted) return;
-    try {
-      this.initContext();
-      if (!this.audioCtx) return;
 
-      const now = this.audioCtx.currentTime;
-
-      // Create primary chime note (E5 -> B5 sequence)
-      const osc1 = this.audioCtx.createOscillator();
-      const gain1 = this.audioCtx.createGain();
-      
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(659.25, now); // E5
-      osc1.frequency.exponentialRampToValueAtTime(987.77, now + 0.08); // B5
-
-      gain1.gain.setValueAtTime(0.08, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-      osc1.connect(gain1);
-      gain1.connect(this.audioCtx.destination);
-
-      osc1.start(now);
-      osc1.stop(now + 0.25);
-    } catch (e) {
-      console.warn('Audio play error:', e);
+    // 1. Mobile Device Vibration feedback (supported on Android / mobile browsers)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([120, 80, 120]);
+      } catch (e) {}
     }
+
+    // 2. Native System/Device Notification (uses OS default notification sound & banner)
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          const n = new Notification(title, {
+            body,
+            icon,
+            badge: '/chat.png',
+            vibrate: [120, 80, 120],
+            renotify: true,
+            tag: 'convo-notification',
+          });
+          // Auto-close after 4 seconds
+          setTimeout(() => n.close(), 4000);
+        } catch (e) {
+          console.warn('Device notification error:', e);
+        }
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }
+
+  // Alias for backward compatibility
+  playMessageSound(opts) {
+    this.playDeviceNotification(opts);
   }
 }
 

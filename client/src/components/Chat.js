@@ -76,7 +76,6 @@ function Chat({ onLogout }) {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
-  const [userFilterTab, setUserFilterTab] = useState('all'); // 'all' | 'online'
 
   // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -104,6 +103,24 @@ function Chat({ onLogout }) {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [lastActivityMap, setLastActivityMap] = useState({});
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Dynamic Mobile Viewport Height calculation & window resize listener
+  useEffect(() => {
+    const handleResize = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
 
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -268,7 +285,16 @@ function Chat({ onLogout }) {
       const isActiveChat = receiverRef.current === msg.sender;
 
       if (msg.receiver === currentUser._id) {
-        soundManager.playMessageSound();
+        const senderObj = allUsers.find(u => u._id === msg.sender);
+        const senderName = senderObj?.username || 'New Message';
+        const msgText = msg.file ? (msg.text ? `${msg.text} (Attachment)` : 'Sent an attachment') : (msg.text || 'New message');
+
+        soundManager.playDeviceNotification({
+          title: senderName,
+          body: msgText,
+          icon: senderObj?.avatar || '/chat.png'
+        });
+
         setLastActivityMap(prev => ({
           ...prev,
           [msg.sender]: msg.createdAt,
@@ -297,8 +323,15 @@ function Chat({ onLogout }) {
 
     socket.on('receive-chat-request', (chatReq) => {
       setChatRequests(prev => [...prev.filter(r => r._id !== chatReq._id), chatReq]);
-      soundManager.playMessageSound();
+      const senderObj = allUsers.find(u => u._id === chatReq.sender);
+      const senderName = senderObj?.username || 'Someone';
+      soundManager.playDeviceNotification({
+        title: 'New Chat Request',
+        body: `${senderName} sent you a chat request`,
+        icon: senderObj?.avatar || '/chat.png'
+      });
     });
+
 
     socket.on('update-chat-request', (chatReq) => {
       setChatRequests(prev => prev.map(r => r._id === chatReq._id ? chatReq : r));
@@ -580,7 +613,6 @@ function Chat({ onLogout }) {
     return day.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const isMobile = window.innerWidth < 768;
   const currentReceiverObj = allUsers.find(u => u._id === receiver);
   const isReceiverOnline = onlineUsers.some(u => u._id === receiver);
   const isReceiverTyping = !!typingUsers?.[receiver];
@@ -592,7 +624,6 @@ function Chat({ onLogout }) {
     : messages;
 
   // Split users into Friends (accepted/connected) and Others
-  const myId = currentUser._id?.toString();
   const baseUsers = allUsers
     .filter(u => u._id !== currentUser._id)
     .filter(u => u.username.toLowerCase().includes(userSearchQuery.toLowerCase()));

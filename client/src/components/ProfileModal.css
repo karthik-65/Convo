@@ -202,3 +202,15 @@
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
 }
+
+@media (max-width: 600px) {
+  .profile-modal-card {
+    padding: 22px 18px;
+    width: 94%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .profile-input, .profile-textarea {
+    font-size: 16px;
+  }
+}

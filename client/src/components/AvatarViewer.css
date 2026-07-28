@@ -127,3 +127,17 @@
   font-style: italic;
   line-height: 1.4;
 }
+
+@media (max-width: 600px) {
+  .avatar-viewer-backdrop {
+    padding: 12px;
+  }
+  .avatar-viewer-card {
+    max-width: 100%;
+    border-radius: 20px;
+  }
+  .avatar-viewer-btn {
+    width: 38px;
+    height: 38px;
+  }
+}
