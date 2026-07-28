@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, CheckCircle2, Sun, Moon, MessageSquare } from 'lucide-react';
 import './Login.css'; // Shared auth styles
 import './Register.css';
+
 
 function Register() {
   const [username, setUsername] = useState('');
@@ -100,12 +101,12 @@ function Register() {
     setIsLoading(true);
 
     try {
-      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
-      await axios.post(`${apiBase}/auth/register`, {
+      await axiosInstance.post('/auth/register', {
         username,
         email,
         password,
       });
+
 
       setShowSuccessModal(true);
       setTimeout(() => {

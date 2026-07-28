@@ -6,19 +6,22 @@ const ChatRequest = require('../models/ChatRequest');
 const Message = require('../models/Message');
 
 
+const JWT_SECRET = process.env.JWT_SECRET || 'convo_jwt_secret_key_2026_fallback';
+
 // Middleware to verify JWT
 const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
   if (!token) return res.status(401).json({ message: 'Access denied' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.id;
     next();
   } catch (err) {
     res.status(400).json({ message: 'Invalid token' });
   }
 };
+
 
 // GET all chat requests for current user
 router.get('/', verifyToken, async (req, res) => {
