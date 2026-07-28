@@ -76,7 +76,7 @@ function Chat({ onLogout }) {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
-  const [unreadCounts, setUnreadCounts] = useState({});
+
 
 
   // Profile Modal State
