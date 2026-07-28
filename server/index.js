@@ -71,26 +71,32 @@ const io = socketIo(server, {
 
 
 
-if (!process.env.MONGO_URI) {
-  throw new Error("MONGO_URI is not set in environment variables!");
+const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/chat-app';
+
+mongoose.connect(mongoUri, {
+  serverSelectionTimeoutMS: 5000,
+})
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => console.error('MongoDB connection error:', err.message));
+
+let storage;
+try {
+  storage = new GridFsStorage({
+    url: mongoUri,
+    file: (req, file) => ({
+      filename: `${Date.now()}-${file.originalname}`,
+      bucketName: 'uploads',
+      metadata: {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+      }
+    }),
+  });
+} catch (e) {
+  console.warn('GridFS storage initialization warning:', e.message);
 }
+const upload = multer({ storage: storage || multer.memoryStorage() });
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error(err));
-
-const storage = new GridFsStorage({
-  url: process.env.MONGO_URI,
-  file: (req, file) => ({
-    filename: `${Date.now()}-${file.originalname}`,
-    bucketName: 'uploads',
-    metadata: {
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    }
-  }),
-});
-const upload = multer({ storage });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });

@@ -61,11 +61,21 @@ function Login({ setUser }) {
       setUser(res.data.user);
       navigate('/');
     } catch (err) {
-      console.error('Login error:', err.response ? err.response.data : err.message);
-      setLoginError(err.response?.data?.message || 'Invalid credentials');
+      console.error('Login error:', err);
+      const rawMessage = (err.response?.data?.message || err.message || '').toLowerCase();
+      const status = err.response?.status;
+
+      if (rawMessage.includes('invalid') || status === 400 || status === 401) {
+        setLoginError('Invalid username/email or password.');
+      } else if (status === 500 || status === 503 || !err.response || rawMessage.includes('database') || rawMessage.includes('timeout') || rawMessage.includes('network') || rawMessage.includes('server')) {
+        setLoginError('Service temporarily unavailable. Please try again in a moment.');
+      } else {
+        setLoginError('Login failed. Please check your credentials and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
+
   };
 
   return (

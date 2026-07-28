@@ -22,6 +22,19 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+const mongoose = require('mongoose');
+
+// Helper to verify DB connection is live
+const checkDbConnected = (res) => {
+  if (mongoose.connection.readyState !== 1) {
+    res.status(503).json({
+      message: 'Database connection offline. Please check MONGO_URI on Render environment variables and whitelist 0.0.0.0/0 in MongoDB Atlas Network Access.'
+    });
+    return false;
+  }
+  return true;
+};
+
 // Register Route
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
@@ -30,7 +43,10 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ message: 'Username, email, and password are required' });
   }
 
+  if (!checkDbConnected(res)) return;
+
   try {
+
     const existingEmail = await User.findOne({ email });
     if (existingEmail) return res.status(400).json({ message: 'Email already exists' });
 
@@ -65,6 +81,8 @@ router.post('/login', async (req, res) => {
   if (!emailOrUsername || !password) {
     return res.status(400).json({ message: 'Username/Email and password are required' });
   }
+
+  if (!checkDbConnected(res)) return;
 
   try {
     const user = await User.findOne({

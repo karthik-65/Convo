@@ -114,18 +114,23 @@ function Register() {
         navigate('/login');
       }, 1800);
     } catch (err) {
-      const message = err.response?.data?.message || 'Registration failed';
+      console.error('Registration Error:', err);
+      const rawMessage = (err.response?.data?.message || err.message || '').toLowerCase();
+      const status = err.response?.status;
 
-      if (message.toLowerCase().includes('username')) {
-        setUsernameError('Username already exists');
-      } else if (message.toLowerCase().includes('email')) {
-        setEmailError('Email already exists');
+      if (rawMessage.includes('username')) {
+        setUsernameError('This username is already taken. Please choose another.');
+      } else if (rawMessage.includes('email')) {
+        setEmailError('This email is already registered. Please log in or use another email.');
+      } else if (status === 500 || status === 503 || !err.response || rawMessage.includes('database') || rawMessage.includes('timeout') || rawMessage.includes('network') || rawMessage.includes('server')) {
+        setGeneralError('Service temporarily unavailable. Please try again in a moment.');
       } else {
-        setGeneralError(message);
+        setGeneralError('Registration failed. Please check your details and try again.');
       }
     } finally {
       setIsLoading(false);
     }
+
   };
 
   return (
