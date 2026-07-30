@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   MessageSquare, Sun, Moon, Volume2, VolumeX, LogOut, Search, X,
   Paperclip, Send, Mic, Square, ArrowLeft, CheckCheck, Check,
-  Edit2, Trash2, Download, Smile, Play, Pause, UserPlus, UserCheck, UserX, Clock, Settings
+  Edit2, Trash2, Download, Smile, Play, Pause, UserPlus, UserCheck, UserX, Clock, Settings, Bell
 } from 'lucide-react';
 import EditMessage from './EditMessage';
 import EmojiPicker from './EmojiPicker';
@@ -106,6 +106,10 @@ function Chat({ onLogout }) {
   const [lastActivityMap, setLastActivityMap] = useState({});
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [toastNotification, setToastNotification] = useState(null);
+  const [notifPermission, setNotifPermission] = useState(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'granted'
+  );
 
   // Dynamic Mobile Viewport Height calculation & window resize listener
   useEffect(() => {
@@ -174,6 +178,16 @@ function Chat({ onLogout }) {
       })
       .catch(err => console.error('Failed to fetch user me:', err));
   }, []);
+
+  // Fetch latest conversation activity timestamps on initial load
+  useEffect(() => {
+    if (!currentUser?._id) return;
+    axiosInstance.get('/messages/recent/conversations')
+      .then(res => {
+        setLastActivityMap(res.data || {});
+      })
+      .catch(err => console.error('Failed to fetch recent conversations:', err));
+  }, [currentUser?._id]);
 
   // Fetch Chat Requests
   const fetchChatRequests = async () => {
@@ -323,6 +337,18 @@ function Chat({ onLogout }) {
         }));
 
         if (!isActiveChat) {
+          setToastNotification({
+            senderId: msgSender,
+            title: senderName,
+            body: msgText,
+            avatar: senderObj?.avatar,
+            username: senderName,
+          });
+
+          setTimeout(() => {
+            setToastNotification(prev => (prev?.senderId === msgSender ? null : prev));
+          }, 5000);
+
           setUnreadCounts(prev => ({
             ...prev,
             [msgSender]: (prev[msgSender] || 0) + 1,
@@ -352,6 +378,14 @@ function Chat({ onLogout }) {
         body: `${senderName} sent you a chat request`,
         icon: senderObj?.avatar || '/chat.png'
       });
+      setToastNotification({
+        senderId: chatReq.sender,
+        title: 'New Chat Request',
+        body: `${senderName} sent you a chat request`,
+        avatar: senderObj?.avatar,
+        username: senderName,
+      });
+      setTimeout(() => setToastNotification(null), 5000);
     });
 
     socket.on('update-chat-request', (chatReq) => {
@@ -446,20 +480,30 @@ function Chat({ onLogout }) {
     }
   }, [receiver, messages, currentUser?._id]);
 
-  // Auto scroll
+  // Auto scroll listener setup - attaches to chatBox when chat opens or changes
   useEffect(() => {
     const chatBox = chatBoxRef.current;
     if (!chatBox) return;
 
     const handleScroll = () => {
-      const nearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 40;
+      const nearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 60;
       isAutoScroll.current = nearBottom;
     };
 
     chatBox.addEventListener('scroll', handleScroll);
     return () => chatBox.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [receiver, filteredMessages.length]);
 
+  // Reset scroll to bottom when selecting a user
+  useEffect(() => {
+    const chatBox = chatBoxRef.current;
+    if (chatBox) {
+      isAutoScroll.current = true;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  }, [receiver]);
+
+  // Auto-scroll on message updates ONLY if user is already at/near the bottom
   useEffect(() => {
     const chatBox = chatBoxRef.current;
     if (chatBox && isAutoScroll.current) {
@@ -632,9 +676,12 @@ function Chat({ onLogout }) {
   };
 
   const toggleMute = () => {
+    soundManager.initContext();
+    soundManager.requestPermission();
     const muted = soundManager.toggleMute();
     setIsMuted(muted);
   };
+
 
   const formatTimestamp = (createdAt) => {
     if (!createdAt) return '';
@@ -675,13 +722,21 @@ function Chat({ onLogout }) {
       return status === 'accepted';
     })
     .sort((a, b) => {
-      const aUnread = unreadCounts[a._id] || 0;
-      const bUnread = unreadCounts[b._id] || 0;
-      if (aUnread > 0 && bUnread === 0) return -1;
-      if (bUnread > 0 && aUnread === 0) return 1;
       const aTime = new Date(lastActivityMap[a._id] || 0).getTime();
       const bTime = new Date(lastActivityMap[b._id] || 0).getTime();
-      return bTime - aTime;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+
+      const aUnread = unreadCounts[a._id] || 0;
+      const bUnread = unreadCounts[b._id] || 0;
+      if (aUnread !== bUnread) {
+        return bUnread - aUnread;
+      }
+
+      const aOnline = onlineUsers.some(ou => ou._id === a._id) ? 1 : 0;
+      const bOnline = onlineUsers.some(ou => ou._id === b._id) ? 1 : 0;
+      return bOnline - aOnline;
     });
 
   const otherUsers = baseUsers
@@ -733,6 +788,19 @@ function Chat({ onLogout }) {
             <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{currentUser.username}</span>
             <Settings size={14} color="var(--text-muted)" style={{ marginLeft: 2 }} />
           </div>
+
+          {notifPermission === 'default' && (
+            <button
+              className="nav-icon-btn highlight-bell"
+              onClick={async () => {
+                const perm = await soundManager.requestPermission();
+                setNotifPermission(perm);
+              }}
+              title="Click to enable browser notifications"
+            >
+              <Bell size={18} color="#f59e0b" />
+            </button>
+          )}
 
           <button className="nav-icon-btn" onClick={toggleMute} title={isMuted ? 'Unmute sounds' : 'Mute sounds'}>
             {isMuted ? <VolumeX size={18} color="#ef4444" /> : <Volume2 size={18} />}
@@ -1418,6 +1486,37 @@ function Chat({ onLogout }) {
           user={viewingAvatar}
           onClose={() => setViewingAvatar(null)}
         />
+      )}
+
+      {/* IN-APP FLOATING TOAST NOTIFICATION */}
+      {toastNotification && (
+        <motion.div
+          className="in-app-toast-notification"
+          initial={{ y: -80, opacity: 0, scale: 0.95 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: -80, opacity: 0, scale: 0.95 }}
+          onClick={() => {
+            fetchMessages(toastNotification.senderId);
+            setToastNotification(null);
+          }}
+        >
+          <div className="toast-avatar-box">
+            {toastNotification.avatar ? (
+              <img src={toastNotification.avatar} alt="avatar" />
+            ) : (
+              <div className="avatar-circle" style={{ background: getUserGradient(toastNotification.username) }}>
+                {getUserInitials(toastNotification.username)}
+              </div>
+            )}
+          </div>
+          <div className="toast-text-content">
+            <div className="toast-title-text">{toastNotification.title}</div>
+            <div className="toast-body-text">{toastNotification.body}</div>
+          </div>
+          <button className="toast-close-btn" onClick={(e) => { e.stopPropagation(); setToastNotification(null); }}>
+            <X size={14} />
+          </button>
+        </motion.div>
       )}
     </div>
   );

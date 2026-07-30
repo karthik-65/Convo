@@ -1,21 +1,45 @@
-const express = require('express');
-const router = express.Router();
-const jwt = require('jsonwebtoken');
-const Message = require('../models/Message');
+const mongoose = require('mongoose');
 
-// Middleware to verify JWT
-const verifyToken = (req, res, next) => {
-  const token = req.headers['authorization'];
-  if (!token) return res.status(401).json({ message: 'Access denied' });
-
+// GET latest activity / last message timestamp for each conversation involving current user
+router.get('/recent/conversations', verifyToken, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id;
-    next();
+    const userId = new mongoose.Types.ObjectId(req.userId);
+    const recentMessages = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ sender: userId }, { receiver: userId }]
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ['$sender', userId] },
+              '$receiver',
+              '$sender'
+            ]
+          },
+          lastMessageAt: { $first: '$createdAt' }
+        }
+      }
+    ]);
+
+    const activityMap = {};
+    recentMessages.forEach(item => {
+      if (item._id) {
+        activityMap[item._id.toString()] = item.lastMessageAt;
+      }
+    });
+
+    res.json(activityMap);
   } catch (err) {
-    res.status(400).json({ message: 'Invalid token' });
+    console.error('Error fetching recent conversations:', err);
+    res.status(500).json({ message: 'Server error' });
   }
-};
+});
 
 // GET messages between current user and another user
 router.get('/:receiverId', verifyToken, async (req, res) => {

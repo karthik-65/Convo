@@ -10,11 +10,21 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    try {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser && savedUser !== 'undefined' && savedUser !== 'null') {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && typeof parsed === 'object') {
+          setUser(parsed);
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing saved user from localStorage:', e);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const handleLogout = () => {
@@ -33,11 +43,11 @@ function App() {
       />
       <Route
         path="/login"
-        element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
+        element={!user ? <Login setUser={setUser} /> : <Navigate to="/" replace />}
       />
       <Route
         path="/register"
-        element={user ? <Navigate to="/" replace /> : <Register setUser={setUser} />}
+        element={!user ? <Register setUser={setUser} /> : <Navigate to="/" replace />}
       />
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
