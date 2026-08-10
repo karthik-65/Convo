@@ -456,6 +456,20 @@ function Chat({ onLogout }) {
       .catch(err => console.error('Failed to fetch users:', err));
   }, []);
 
+  const fetchMessages = async (receiverId) => {
+    setReceiver(receiverId);
+    setUnreadCounts(prev => ({ ...prev, [receiverId]: 0 }));
+    if (isMobile) {
+      setIsMobileChatOpen(true);
+    }
+    try {
+      const res = await axiosInstance.get(`/messages/${receiverId}`);
+      setMessages(res.data);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  };
+
   // Fetch messages on receiver select
   useEffect(() => {
     if (receiver) {
@@ -492,7 +506,7 @@ function Chat({ onLogout }) {
 
     chatBox.addEventListener('scroll', handleScroll);
     return () => chatBox.removeEventListener('scroll', handleScroll);
-  }, [receiver, filteredMessages.length]);
+  }, [receiver, messages.length]);
 
   // Reset scroll to bottom when selecting a user
   useEffect(() => {
@@ -521,19 +535,7 @@ function Chat({ onLogout }) {
     return () => window.removeEventListener('click', handleClose);
   }, [contextMenu.visible, showEmojiPicker]);
 
-  const fetchMessages = async (receiverId) => {
-    setReceiver(receiverId);
-    setUnreadCounts(prev => ({ ...prev, [receiverId]: 0 }));
-    if (isMobile) {
-      setIsMobileChatOpen(true);
-    }
-    try {
-      const res = await axiosInstance.get(`/messages/${receiverId}`);
-      setMessages(res.data);
-    } catch (err) {
-      console.error('Error fetching messages:', err);
-    }
-  };
+
 
 
   const sendMessage = async (overrideFile = null, overrideText = null) => {

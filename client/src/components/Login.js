@@ -63,15 +63,18 @@ function Login({ setUser }) {
 
     } catch (err) {
       console.error('Login error:', err);
-      const rawMessage = (err.response?.data?.message || err.message || '').toLowerCase();
+      const serverMsg = err.response?.data?.message;
+      const rawMessage = (serverMsg || err.message || '').toLowerCase();
       const status = err.response?.status;
 
-      if (rawMessage.includes('invalid') || status === 400 || status === 401) {
-        setLoginError('Invalid username/email or password.');
+      if (status === 404 || rawMessage.includes('register') || rawMessage.includes('not found') || rawMessage.includes('not registered')) {
+        setLoginError(serverMsg || 'User is not registered. Please register first.');
+      } else if (serverMsg && (status === 400 || status === 401)) {
+        setLoginError(serverMsg);
       } else if (status === 500 || status === 503 || !err.response || rawMessage.includes('database') || rawMessage.includes('timeout') || rawMessage.includes('network') || rawMessage.includes('server')) {
         setLoginError('Service temporarily unavailable. Please try again in a moment.');
       } else {
-        setLoginError('Login failed. Please check your credentials and try again.');
+        setLoginError(serverMsg || 'Login failed. Please check your credentials and try again.');
       }
     } finally {
       setIsLoading(false);

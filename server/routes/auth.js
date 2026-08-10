@@ -104,9 +104,14 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(404).json({ message: 'User is not registered. Please register first.' });
     }
+
     const match = await user.comparePassword(password);
+    if (!match) {
+      return res.status(400).json({ message: 'Incorrect password. Please try again.' });
+    }
+
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
