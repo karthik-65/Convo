@@ -135,6 +135,7 @@ function Chat({ onLogout }) {
       window.history.pushState(null, '', window.location.href);
       if (isMobileChatOpen) {
         setIsMobileChatOpen(false);
+        setReceiver(null);
       }
     };
 
@@ -163,10 +164,14 @@ function Chat({ onLogout }) {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Keep latest receiver in ref
+  // Keep latest receiver in ref (only active when chat panel is open)
   useEffect(() => {
-    receiverRef.current = receiver;
-  }, [receiver]);
+    if (isMobile && !isMobileChatOpen) {
+      receiverRef.current = null;
+    } else {
+      receiverRef.current = receiver;
+    }
+  }, [receiver, isMobile, isMobileChatOpen]);
 
   const currentUserId = currentUser?._id;
 
@@ -708,6 +713,8 @@ function Chat({ onLogout }) {
   const isReceiverTyping = !!typingUsers?.[receiver];
   const currentChatStatus = getChatStatus(receiver);
 
+  const totalUnreadCount = Object.values(unreadCounts).reduce((acc, count) => acc + (count || 0), 0);
+
   // Filter messages by chat search
   const filteredMessages = chatSearchQuery.trim()
     ? messages.filter(m => m.text.toLowerCase().includes(chatSearchQuery.toLowerCase()))
@@ -986,8 +993,37 @@ function Chat({ onLogout }) {
               <div className="chat-header">
                 <div className="chat-header-user">
                   {isMobile && (
-                    <button className="nav-icon-btn" onClick={() => setIsMobileChatOpen(false)}>
+                    <button
+                      className="nav-icon-btn"
+                      style={{ position: 'relative' }}
+                      onClick={() => {
+                        setIsMobileChatOpen(false);
+                        setReceiver(null);
+                      }}
+                      title="Back to User List"
+                    >
                       <ArrowLeft size={20} />
+                      {totalUnreadCount > 0 && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: -3,
+                            right: -3,
+                            background: '#ef4444',
+                            color: '#fff',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            borderRadius: '10px',
+                            padding: '2px 5px',
+                            minWidth: '16px',
+                            textAlign: 'center',
+                            lineHeight: 1,
+                            boxShadow: '0 2px 6px rgba(239, 68, 68, 0.5)'
+                          }}
+                        >
+                          {totalUnreadCount}
+                        </span>
+                      )}
                     </button>
                   )}
                   <div
