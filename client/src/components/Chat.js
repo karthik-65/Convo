@@ -106,7 +106,6 @@ function Chat({ onLogout }) {
   const [lastActivityMap, setLastActivityMap] = useState({});
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [toastNotification, setToastNotification] = useState(null);
   const [notifPermission, setNotifPermission] = useState(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'granted'
   );
@@ -169,6 +168,8 @@ function Chat({ onLogout }) {
     receiverRef.current = receiver;
   }, [receiver]);
 
+  const currentUserId = currentUser?._id;
+
   // Fetch current user details
   useEffect(() => {
     axiosInstance.get('/auth/me')
@@ -179,18 +180,23 @@ function Chat({ onLogout }) {
       .catch(err => console.error('Failed to fetch user me:', err));
   }, []);
 
-  // Fetch latest conversation activity timestamps on initial load
+  // Fetch latest conversation activity timestamps and unread counts on initial load
   useEffect(() => {
-    if (!currentUser?._id) return;
+    if (!currentUserId) return;
     axiosInstance.get('/messages/recent/conversations')
       .then(res => {
-        setLastActivityMap(res.data || {});
+        if (res.data) {
+          setLastActivityMap(res.data.activityMap || res.data || {});
+          if (res.data.unreadMap) {
+            setUnreadCounts(res.data.unreadMap);
+          }
+        }
       })
       .catch(err => console.error('Failed to fetch recent conversations:', err));
-  }, [currentUser?._id]);
+  }, [currentUserId]);
 
   // Fetch Chat Requests
-  const fetchChatRequests = async () => {
+  async function fetchChatRequests() {
     try {
       const res = await axiosInstance.get('/chat-requests');
       setChatRequests(res.data.requests || []);
@@ -198,7 +204,7 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Failed to fetch chat requests:', err);
     }
-  };
+  }
 
   useEffect(() => {
     fetchChatRequests();
@@ -207,9 +213,9 @@ function Chat({ onLogout }) {
     return () => clearInterval(interval);
   }, []);
 
-  const getChatStatus = (otherUserId) => {
+  function getChatStatus(otherUserId) {
     if (!otherUserId) return 'none';
-    const myId = currentUser._id?.toString();
+    const myId = currentUserId?.toString();
     const otherId = otherUserId?.toString();
 
     if (connectedUserIds.map(id => id.toString()).includes(otherId)) return 'accepted';
@@ -226,9 +232,9 @@ function Chat({ onLogout }) {
       return { type: 'received', request: req };
     }
     return 'none';
-  };
+  }
 
-  const handleSendChatRequest = async (receiverId) => {
+  async function handleSendChatRequest(receiverId) {
     try {
       const res = await axiosInstance.post('/chat-requests/send', { receiver: receiverId });
       setChatRequests(prev => [...prev.filter(r => r._id !== res.data._id), res.data]);
@@ -241,15 +247,14 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Failed to send chat request:', err);
     }
-  };
+  }
 
-  const handleRespondChatRequest = async (requestId, action) => {
+  async function handleRespondChatRequest(requestId, action) {
     try {
       const res = await axiosInstance.post('/chat-requests/respond', { requestId, action });
       setChatRequests(prev => prev.map(r => r._id === requestId ? res.data : r));
       if (action === 'accept') {
-        // Derive the other user's ID from the response, not from the `receiver` state
-        const myId = currentUser._id?.toString();
+        const myId = currentUserId?.toString();
         const otherId = res.data.sender === myId ? res.data.receiver : res.data.sender;
         setConnectedUserIds(prev => [...prev, otherId]);
       }
@@ -262,22 +267,22 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Failed to respond to chat request:', err);
     }
-  };
+  }
 
-  const handleProfileUpdated = (updatedUser) => {
+  function handleProfileUpdated(updatedUser) {
     setCurrentUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setAllUsers(prev => prev.map(u => u._id === updatedUser._id ? { ...u, ...updatedUser } : u));
     socket.emit('update-user-profile', updatedUser);
-  };
+  }
 
   // Socket setup
   useEffect(() => {
-    if (!currentUser?._id) return;
+    if (!currentUserId) return;
 
     // Register this user in the server's online-users map
     const joinServer = () => {
-      socket.emit('join', currentUser._id);
+      socket.emit('join', currentUserId);
     };
     joinServer();
 
@@ -293,7 +298,7 @@ function Chat({ onLogout }) {
     });
 
     socket.on('typing', ({ sender, receiver }) => {
-      if (receiver !== currentUser._id) return;
+      if (receiver !== currentUserId) return;
       setTypingUsers(prev => ({ ...prev, [sender]: true }));
       clearTimeout(typingTimeoutRef.current[sender]);
       typingTimeoutRef.current[sender] = setTimeout(() => {
@@ -314,11 +319,15 @@ function Chat({ onLogout }) {
     });
 
     socket.on('receive-message', (msg) => {
-      const myId = currentUser._id?.toString();
+      const myId = currentUserId?.toString();
       const msgReceiver = msg.receiver?.toString();
       const msgSender = msg.sender?.toString();
 
       if (msgReceiver === myId) {
+        if (msg._id) {
+          socket.emit('markAsDelivered', { messageIds: [msg._id], userId: currentUserId });
+        }
+
         const isActiveChat = receiverRef.current?.toString() === msgSender;
 
         const senderObj = allUsers.find(u => u._id?.toString() === msgSender);
@@ -337,18 +346,6 @@ function Chat({ onLogout }) {
         }));
 
         if (!isActiveChat) {
-          setToastNotification({
-            senderId: msgSender,
-            title: senderName,
-            body: msgText,
-            avatar: senderObj?.avatar,
-            username: senderName,
-          });
-
-          setTimeout(() => {
-            setToastNotification(prev => (prev?.senderId === msgSender ? null : prev));
-          }, 5000);
-
           setUnreadCounts(prev => ({
             ...prev,
             [msgSender]: (prev[msgSender] || 0) + 1,
@@ -378,20 +375,12 @@ function Chat({ onLogout }) {
         body: `${senderName} sent you a chat request`,
         icon: senderObj?.avatar || '/chat.png'
       });
-      setToastNotification({
-        senderId: chatReq.sender,
-        title: 'New Chat Request',
-        body: `${senderName} sent you a chat request`,
-        avatar: senderObj?.avatar,
-        username: senderName,
-      });
-      setTimeout(() => setToastNotification(null), 5000);
     });
 
     socket.on('update-chat-request', (chatReq) => {
       setChatRequests(prev => prev.map(r => r._id === chatReq._id ? chatReq : r));
       if (chatReq.status === 'accepted') {
-        const otherId = chatReq.sender === currentUser._id ? chatReq.receiver : chatReq.sender;
+        const otherId = chatReq.sender === currentUserId ? chatReq.receiver : chatReq.sender;
         setConnectedUserIds(prev => [...prev, otherId]);
       }
     });
@@ -429,11 +418,21 @@ function Chat({ onLogout }) {
       socket.off('force-logout');
     };
 
-  }, [currentUser, allUsers]);
+  }, [currentUserId, allUsers]);
 
 
-  // Seen status listener
+  // Delivered & Seen status listener
   useEffect(() => {
+    socket.on('messageDelivered', ({ messageId, deliveredTo }) => {
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg._id === messageId && !msg.deliveredTo?.includes(deliveredTo)
+            ? { ...msg, deliveredTo: [...(msg.deliveredTo || []), deliveredTo] }
+            : msg
+        )
+      );
+    });
+
     socket.on('messageSeen', ({ messageId, seenBy }) => {
       setMessages(prevMessages =>
         prevMessages.map(msg =>
@@ -445,6 +444,7 @@ function Chat({ onLogout }) {
     });
 
     return () => {
+      socket.off('messageDelivered');
       socket.off('messageSeen');
     };
   }, []);
@@ -456,9 +456,9 @@ function Chat({ onLogout }) {
       .catch(err => console.error('Failed to fetch users:', err));
   }, []);
 
-  const fetchMessages = async (receiverId) => {
+  async function fetchMessages(receiverId) {
     setReceiver(receiverId);
-    setUnreadCounts(prev => ({ ...prev, [receiverId]: 0 }));
+    setUnreadCounts(prev => ({ ...prev, [receiverId?.toString()]: 0 }));
     if (isMobile) {
       setIsMobileChatOpen(true);
     }
@@ -468,31 +468,32 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Error fetching messages:', err);
     }
-  };
+  }
 
   // Fetch messages on receiver select
   useEffect(() => {
     if (receiver) {
       fetchMessages(receiver);
-      setUnreadCounts(prev => ({ ...prev, [receiver]: 0 }));
+      setUnreadCounts(prev => ({ ...prev, [receiver?.toString()]: 0 }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiver]);
 
   // Mark unseen messages as seen
   useEffect(() => {
-    if (receiver && messages.length > 0) {
+    if (receiver && messages.length > 0 && currentUserId) {
       const unseenMessageIds = messages
-        .filter(msg => msg.receiver === currentUser._id && !msg.seenBy?.includes(currentUser._id))
+        .filter(msg => msg.receiver === currentUserId && !msg.seenBy?.includes(currentUserId))
         .map(msg => msg._id);
 
       if (unseenMessageIds.length > 0) {
         socket.emit('markAsSeen', {
           messageIds: unseenMessageIds,
-          userId: currentUser._id
+          userId: currentUserId
         });
       }
     }
-  }, [receiver, messages, currentUser?._id]);
+  }, [receiver, messages, currentUserId]);
 
   // Auto scroll listener setup - attaches to chatBox when chat opens or changes
   useEffect(() => {
@@ -538,7 +539,7 @@ function Chat({ onLogout }) {
 
 
 
-  const sendMessage = async (overrideFile = null, overrideText = null) => {
+  async function sendMessage(overrideFile = null, overrideText = null) {
     if (!receiver) return;
     const sendFile = overrideFile || file;
     const sendText = overrideText !== null ? overrideText : message;
@@ -567,7 +568,7 @@ function Chat({ onLogout }) {
     }
 
     const msg = {
-      sender: currentUser._id,
+      sender: currentUserId,
       receiver,
       text: sendText,
       file: fileUrl,
@@ -591,10 +592,10 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Failed to send message:', err);
     }
-  };
+  }
 
   // Voice Note Recorder Handlers
-  const startRecording = async () => {
+  async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -628,28 +629,28 @@ function Chat({ onLogout }) {
       console.error('Error accessing microphone:', err);
       alert('Could not access microphone');
     }
-  };
+  }
 
-  const stopRecording = () => {
+  function stopRecording() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       clearInterval(recordingIntervalRef.current);
     }
-  };
+  }
 
-  const handleTyping = (val) => {
+  function handleTyping(val) {
     if (!receiver) return;
     const now = Date.now();
     if (val.trim().length > 0 && now - lastTypingEmitRef.current > 1000) {
-      socket.emit('typing', { sender: currentUser._id, receiver });
+      socket.emit('typing', { sender: currentUserId, receiver });
       lastTypingEmitRef.current = now;
     } else if (val.trim().length === 0) {
-      socket.emit('stop-typing', { sender: currentUser._id, receiver });
+      socket.emit('stop-typing', { sender: currentUserId, receiver });
     }
-  };
+  }
 
-  const handleUpdateMessage = async (id, newText) => {
+  async function handleUpdateMessage(id, newText) {
     if (!newText.trim()) return;
     try {
       await axiosInstance.put(`/messages/${id}`, { text: newText });
@@ -661,9 +662,9 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Failed to update message:', err);
     }
-  };
+  }
 
-  const handleDeleteMessage = async (id) => {
+  async function handleDeleteMessage(id) {
     try {
       await axiosInstance.delete(`/messages/${id}`);
       setMessages(prev => prev.filter(msg => msg._id !== id));
@@ -671,27 +672,26 @@ function Chat({ onLogout }) {
     } catch (err) {
       console.error('Delete failed:', err);
     }
-  };
+  }
 
-  const toggleTheme = () => {
+  function toggleTheme() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
+  }
 
-  const toggleMute = () => {
+  function toggleMute() {
     soundManager.initContext();
     soundManager.requestPermission();
     const muted = soundManager.toggleMute();
     setIsMuted(muted);
-  };
+  }
 
-
-  const formatTimestamp = (createdAt) => {
+  function formatTimestamp(createdAt) {
     if (!createdAt) return '';
     const date = new Date(createdAt);
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-  };
+  }
 
-  const formatDaySeparator = (dateStr) => {
+  function formatDaySeparator(dateStr) {
     const now = new Date();
     const day = new Date(dateStr);
     const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -923,6 +923,7 @@ function Chat({ onLogout }) {
             ) : (
               otherUsers.map(u => {
                 const isOnline = onlineUsers.some(ou => ou._id === u._id);
+                const unreadCount = unreadCounts[u._id?.toString()] || 0;
                 const isSelected = receiver === u._id;
                 const uStatus = getChatStatus(u._id);
 
@@ -962,6 +963,10 @@ function Chat({ onLogout }) {
                         </span>
                       </div>
                     </div>
+
+                    {unreadCount > 0 && (
+                      <span className="unread-badge">{unreadCount}</span>
+                    )}
                   </motion.div>
                 );
               })
@@ -1072,7 +1077,6 @@ function Chat({ onLogout }) {
                           }
 
                           const isSender = msg.sender === currentUser._id;
-                          const isSeen = msg.seenBy?.includes(receiver);
 
                           return (
                             <React.Fragment key={msg._id || i}>
@@ -1164,13 +1168,25 @@ function Chat({ onLogout }) {
 
                                       <div className="message-meta">
                                         <span>{formatTimestamp(msg.createdAt)}</span>
-                                        {isSender && (
-                                          isSeen ? (
-                                            <CheckCheck size={15} color="#818cf8" title="Seen" />
-                                          ) : (
-                                            <Check size={15} color="rgba(255,255,255,0.7)" title="Sent" />
-                                          )
-                                        )}
+                                        {isSender && (() => {
+                                          const isSeen = msg.seenBy?.includes(receiver);
+                                          const isDelivered = isSeen || msg.deliveredTo?.includes(receiver);
+
+                                          if (isSeen) {
+                                            return (
+                                              <CheckCheck
+                                                size={15}
+                                                color="#ff7b00"
+                                                style={{ filter: 'drop-shadow(0 0 2px rgba(255, 123, 0, 0.9))' }}
+                                                title="Seen"
+                                              />
+                                            );
+                                          } else if (isDelivered) {
+                                            return <CheckCheck size={15} color="rgba(255, 255, 255, 0.7)" title="Delivered" />;
+                                          } else {
+                                            return <Check size={15} color="rgba(255, 255, 255, 0.7)" title="Sent" />;
+                                          }
+                                        })()}
                                       </div>
                                     </>
                                   )}
@@ -1490,36 +1506,6 @@ function Chat({ onLogout }) {
         />
       )}
 
-      {/* IN-APP FLOATING TOAST NOTIFICATION */}
-      {toastNotification && (
-        <motion.div
-          className="in-app-toast-notification"
-          initial={{ y: -80, opacity: 0, scale: 0.95 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: -80, opacity: 0, scale: 0.95 }}
-          onClick={() => {
-            fetchMessages(toastNotification.senderId);
-            setToastNotification(null);
-          }}
-        >
-          <div className="toast-avatar-box">
-            {toastNotification.avatar ? (
-              <img src={toastNotification.avatar} alt="avatar" />
-            ) : (
-              <div className="avatar-circle" style={{ background: getUserGradient(toastNotification.username) }}>
-                {getUserInitials(toastNotification.username)}
-              </div>
-            )}
-          </div>
-          <div className="toast-text-content">
-            <div className="toast-title-text">{toastNotification.title}</div>
-            <div className="toast-body-text">{toastNotification.body}</div>
-          </div>
-          <button className="toast-close-btn" onClick={(e) => { e.stopPropagation(); setToastNotification(null); }}>
-            <X size={14} />
-          </button>
-        </motion.div>
-      )}
     </div>
   );
 }

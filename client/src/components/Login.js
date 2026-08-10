@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Lock, Eye, EyeOff, LogIn, Sun, Moon, MessageSquare } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn, Sun, Moon } from 'lucide-react';
 import './Login.css';
 
 function Login({ setUser }) {

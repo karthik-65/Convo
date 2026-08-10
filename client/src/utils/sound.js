@@ -121,8 +121,10 @@ class SoundManager {
       } catch (e) {}
     }
 
-    // 3. Native OS System Notification (ServiceWorker showNotification for Mobile + Fallback for Desktop)
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    // 3. Native OS System Notification (Only shown when outside the application)
+    const isOutsideApp = typeof document !== 'undefined' && (document.hidden || !document.hasFocus());
+
+    if (isOutsideApp && typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         const notifOptions = {
           body,

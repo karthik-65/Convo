@@ -156,6 +156,25 @@ io.on('connection', (socket) => {
     }
     users[userId] = socket.id;
     io.emit('online-users', Object.keys(users));
+
+    // Auto-deliver any pending messages sent to this user while they were offline
+    Message.find({ receiver: userId, deliveredTo: { $ne: userId } })
+      .then(async (pendingMsgs) => {
+        if (pendingMsgs.length > 0) {
+          const msgIds = pendingMsgs.map(m => m._id);
+          await Message.updateMany(
+            { _id: { $in: msgIds } },
+            { $push: { deliveredTo: userId } }
+          );
+          pendingMsgs.forEach(msg => {
+            const senderSocket = users[msg.sender.toString()];
+            if (senderSocket) {
+              io.to(senderSocket).emit('messageDelivered', { messageId: msg._id.toString(), deliveredTo: userId });
+            }
+          });
+        }
+      })
+      .catch(err => console.error('Error auto-delivering pending messages:', err));
   });
 
 
@@ -175,9 +194,19 @@ io.on('connection', (socket) => {
     if (receiverSocket) io.to(receiverSocket).emit('update-chat-request', chatReq);
   });
 
-  socket.on('send-message', (msg) => {
+  socket.on('send-message', async (msg) => {
     const receiverSocket = users[msg.receiver];
-    if (receiverSocket) io.to(receiverSocket).emit('receive-message', msg);
+    if (receiverSocket) {
+      try {
+        await Message.findByIdAndUpdate(msg._id, { $addToSet: { deliveredTo: msg.receiver } });
+        const updatedMsg = { ...msg, deliveredTo: [...(msg.deliveredTo || []), msg.receiver] };
+        io.to(receiverSocket).emit('receive-message', updatedMsg);
+        socket.emit('messageDelivered', { messageId: msg._id, deliveredTo: msg.receiver });
+      } catch (err) {
+        console.error('Error delivering message:', err);
+        io.to(receiverSocket).emit('receive-message', msg);
+      }
+    }
   });
 
   socket.on('typing', ({ sender, receiver }) => {
@@ -198,19 +227,39 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('delete-message', { id });
   });
 
-  socket.on('markAsSeen', async ({ messageIds, userId }) => {
+  socket.on('markAsDelivered', async ({ messageIds, userId }) => {
     try {
       await Message.updateMany(
-        { _id: { $in: messageIds }, seenBy: { $ne: userId } },
-        { $push: { seenBy: userId } }
+        { _id: { $in: messageIds }, deliveredTo: { $ne: userId } },
+        { $push: { deliveredTo: userId } }
       );
 
       messageIds.forEach((id) => {
-          Object.entries(users).forEach(([uid, sid]) => {
-            if (uid !== userId) {
-              io.to(sid).emit('messageSeen', { messageId: id, seenBy: userId });
-            }
-          });
+        Object.entries(users).forEach(([uid, sid]) => {
+          if (uid !== userId) {
+            io.to(sid).emit('messageDelivered', { messageId: id, deliveredTo: userId });
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Failed to mark messages as delivered:', error);
+    }
+  });
+
+  socket.on('markAsSeen', async ({ messageIds, userId }) => {
+    try {
+      await Message.updateMany(
+        { _id: { $in: messageIds }, seenBy: { $ne: userId }, deliveredTo: { $ne: userId } },
+        { $push: { seenBy: userId, deliveredTo: userId } }
+      );
+
+      messageIds.forEach((id) => {
+        Object.entries(users).forEach(([uid, sid]) => {
+          if (uid !== userId) {
+            io.to(sid).emit('messageSeen', { messageId: id, seenBy: userId });
+            io.to(sid).emit('messageDelivered', { messageId: id, deliveredTo: userId });
+          }
+        });
       });
     } catch (error) {
       console.error('Failed to mark messages as seen:', error);

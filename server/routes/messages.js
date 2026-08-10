@@ -18,10 +18,12 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// GET latest activity / last message timestamp for each conversation involving current user
+// GET latest activity and unread message count for each conversation involving current user
 router.get('/recent/conversations', verifyToken, async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.userId);
+
+    // 1. Fetch recent activity timestamps
     const recentMessages = await Message.aggregate([
       {
         $match: {
@@ -45,6 +47,22 @@ router.get('/recent/conversations', verifyToken, async (req, res) => {
       }
     ]);
 
+    // 2. Fetch unread message counts for each sender
+    const unreadCountsGroup = await Message.aggregate([
+      {
+        $match: {
+          receiver: userId,
+          seenBy: { $ne: userId }
+        }
+      },
+      {
+        $group: {
+          _id: '$sender',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
     const activityMap = {};
     recentMessages.forEach(item => {
       if (item._id) {
@@ -52,7 +70,14 @@ router.get('/recent/conversations', verifyToken, async (req, res) => {
       }
     });
 
-    res.json(activityMap);
+    const unreadMap = {};
+    unreadCountsGroup.forEach(item => {
+      if (item._id) {
+        unreadMap[item._id.toString()] = item.count;
+      }
+    });
+
+    res.json({ activityMap, unreadMap });
   } catch (err) {
     console.error('Error fetching recent conversations:', err);
     res.status(500).json({ message: 'Server error' });
@@ -64,6 +89,12 @@ router.get('/:receiverId', verifyToken, async (req, res) => {
   const { receiverId } = req.params;
   const senderId = req.userId;
   try {
+    // Auto-mark messages sent to current user as delivered
+    await Message.updateMany(
+      { sender: receiverId, receiver: senderId, deliveredTo: { $ne: senderId } },
+      { $push: { deliveredTo: senderId } }
+    );
+
     const messages = await Message.find({
       $or: [
         { sender: senderId, receiver: receiverId },

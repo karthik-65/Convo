@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, CheckCircle2, Sun, Moon, MessageSquare } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, CheckCircle2, Sun, Moon } from 'lucide-react';
 import './Login.css'; // Shared auth styles
 import './Register.css';
 
