@@ -89,10 +89,10 @@ router.get('/:receiverId', verifyToken, async (req, res) => {
   const { receiverId } = req.params;
   const senderId = req.userId;
   try {
-    // Auto-mark messages sent to current user as delivered
+    // Auto-mark messages sent to current user as delivered and seen when conversation is opened
     await Message.updateMany(
-      { sender: receiverId, receiver: senderId, deliveredTo: { $ne: senderId } },
-      { $push: { deliveredTo: senderId } }
+      { sender: receiverId, receiver: senderId, seenBy: { $ne: senderId } },
+      { $addToSet: { seenBy: senderId, deliveredTo: senderId } }
     );
 
     const messages = await Message.find({

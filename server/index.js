@@ -231,7 +231,7 @@ io.on('connection', (socket) => {
     try {
       await Message.updateMany(
         { _id: { $in: messageIds }, deliveredTo: { $ne: userId } },
-        { $push: { deliveredTo: userId } }
+        { $addToSet: { deliveredTo: userId } }
       );
 
       messageIds.forEach((id) => {
@@ -249,8 +249,8 @@ io.on('connection', (socket) => {
   socket.on('markAsSeen', async ({ messageIds, userId }) => {
     try {
       await Message.updateMany(
-        { _id: { $in: messageIds }, seenBy: { $ne: userId }, deliveredTo: { $ne: userId } },
-        { $push: { seenBy: userId, deliveredTo: userId } }
+        { _id: { $in: messageIds }, seenBy: { $ne: userId } },
+        { $addToSet: { seenBy: userId, deliveredTo: userId } }
       );
 
       messageIds.forEach((id) => {
