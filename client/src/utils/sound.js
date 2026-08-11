@@ -135,27 +135,24 @@ class SoundManager {
           tag: 'convo-notification',
         };
 
-        const showSWNotification = () => {
-          if ('serviceWorker' in navigator) {
-            return navigator.serviceWorker.ready.then(reg => {
-              return reg.showNotification(title, notifOptions);
-            });
+        try {
+          // Standard Desktop / PC Web Notification (Supported natively on PC Chrome, Edge, Firefox, Safari)
+          const n = new Notification(title, notifOptions);
+          n.onclick = () => {
+            window.focus();
+            n.close();
+          };
+          setTimeout(() => {
+            try { n.close(); } catch (e) {}
+          }, 5000);
+        } catch (e) {
+          // Mobile Android Chrome fallback (if direct Notification constructor is restricted)
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification(title, notifOptions);
+            }).catch(swErr => console.warn('SW notification fallback error:', swErr));
           }
-          return Promise.reject(new Error('No ServiceWorker'));
-        };
-
-        showSWNotification().catch(() => {
-          try {
-            const n = new Notification(title, notifOptions);
-            n.onclick = () => {
-              window.focus();
-              n.close();
-            };
-            setTimeout(() => n.close(), 5000);
-          } catch (e) {
-            console.warn('Native notification fallback error:', e);
-          }
-        });
+        }
       } else if (Notification.permission === 'default') {
         this.requestPermission();
       }
