@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Lock, Eye, EyeOff, LogIn, Sun, Moon } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn, Sun, Moon, Clock } from 'lucide-react';
 import './Login.css';
 
 function Login({ setUser }) {
@@ -10,6 +10,7 @@ function Login({ setUser }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState('');
 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -17,6 +18,14 @@ function Login({ setUser }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const expiredMsg = sessionStorage.getItem('session_expired_message');
+    if (expiredMsg) {
+      setSessionExpiredNotice(expiredMsg);
+      sessionStorage.removeItem('session_expired_message');
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -58,6 +67,7 @@ function Login({ setUser }) {
 
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
+      localStorage.setItem('last_active_time', Date.now().toString());
       setUser(res.data.user);
       navigate('/', { replace: true });
 
@@ -107,6 +117,27 @@ function Login({ setUser }) {
           </div>
           <p className="auth-subtitle">Welcome back! Please enter your details.</p>
         </div>
+
+        {sessionExpiredNotice && (
+          <div
+            style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              marginBottom: '18px',
+              fontSize: '0.86rem',
+              color: '#fca5a5',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              lineHeight: 1.4
+            }}
+          >
+            <Clock size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+            <span>{sessionExpiredNotice}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

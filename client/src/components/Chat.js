@@ -12,6 +12,7 @@ import EmojiPicker from './EmojiPicker';
 import ProfileModal from './ProfileModal';
 import AvatarViewer from './AvatarViewer';
 import soundManager from '../utils/sound';
+import chatCache from '../utils/cache';
 import { getUserGradient, getUserInitials } from '../utils/avatar';
 import './Chat.css';
 
@@ -64,30 +65,58 @@ function VoicePlayer({ src }) {
 }
 
 function Chat({ onLogout }) {
-  const [currentUser, setCurrentUser] = useState(JSON.parse(localStorage.getItem('user')) || {});
-  const [allUsers, setAllUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('user');
+      return (saved && saved !== 'undefined' && saved !== 'null') ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const currentUserId = currentUser?._id;
+
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+
+  // Synchronous zero-latency instant hydration from persistent cache!
+  const [allUsers, setAllUsers] = useState(() => chatCache.getUsers(currentUserId));
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [receiver, setReceiver] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [chatRequests, setChatRequests] = useState(() => chatCache.getChatRequests(currentUserId));
+  const [connectedUserIds, setConnectedUserIds] = useState(() => chatCache.getConnectedUserIds(currentUserId));
+  const [lastActivityMap, setLastActivityMap] = useState(() => chatCache.getActivityMap(currentUserId));
+  const [unreadCounts, setUnreadCounts] = useState(() => chatCache.getUnreadCounts(currentUserId));
+
+  // Remember last receiver for instant desktop continuation
+  const [receiver, setReceiver] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      return chatCache.getLastReceiver(currentUserId);
+    }
+    return null;
+  });
+
+  // Zero-latency instant messages hydration for current receiver
+  const [messages, setMessages] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      const lastRec = chatCache.getLastReceiver(currentUserId);
+      if (lastRec) {
+        return chatCache.getMessages(currentUserId, lastRec);
+      }
+    }
+    return [];
+  });
+
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
-  const [unreadCounts, setUnreadCounts] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
-
-
 
   // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Avatar viewer state
   const [viewingAvatar, setViewingAvatar] = useState(null); // user object
-
-  // Chat Request State
-  const [chatRequests, setChatRequests] = useState([]);
-  const [connectedUserIds, setConnectedUserIds] = useState([]);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -103,9 +132,6 @@ function Chat({ onLogout }) {
   const [previewImage, setPreviewImage] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState(null);
-  const [lastActivityMap, setLastActivityMap] = useState({});
-  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [notifPermission, setNotifPermission] = useState(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'granted'
   );
@@ -173,50 +199,94 @@ function Chat({ onLogout }) {
     }
   }, [receiver, isMobile, isMobileChatOpen]);
 
-  const currentUserId = currentUser?._id;
-
-  // Fetch current user details
-  useEffect(() => {
-    axiosInstance.get('/auth/me')
-      .then(res => {
-        setCurrentUser(res.data);
-        localStorage.setItem('user', JSON.stringify(res.data));
-      })
-      .catch(err => console.error('Failed to fetch user me:', err));
-  }, []);
-
-  // Fetch latest conversation activity timestamps and unread counts on initial load
-  useEffect(() => {
-    if (!currentUserId) return;
-    axiosInstance.get('/messages/recent/conversations')
-      .then(res => {
-        if (res.data) {
-          setLastActivityMap(res.data.activityMap || res.data || {});
-          if (res.data.unreadMap) {
-            setUnreadCounts(res.data.unreadMap);
-          }
-        }
-      })
-      .catch(err => console.error('Failed to fetch recent conversations:', err));
-  }, [currentUserId]);
-
-  // Fetch Chat Requests
+  // Fetch Chat Requests fallback
   async function fetchChatRequests() {
     try {
       const res = await axiosInstance.get('/chat-requests');
-      setChatRequests(res.data.requests || []);
-      setConnectedUserIds(res.data.connectedUserIds || []);
+      const reqs = res.data.requests || [];
+      const ids = res.data.connectedUserIds || [];
+      setChatRequests(reqs);
+      setConnectedUserIds(ids);
+      chatCache.setChatRequests(currentUserId, reqs);
+      chatCache.setConnectedUserIds(currentUserId, ids);
     } catch (err) {
       console.error('Failed to fetch chat requests:', err);
     }
   }
 
+  // Fast single-roundtrip bootstrap to synchronize everything with 0 delay
   useEffect(() => {
-    fetchChatRequests();
-    // Poll every 15s as a fallback when real-time socket delivery fails
+    if (!currentUserId) return;
+
+    let isCancelled = false;
+
+    async function syncData() {
+      try {
+        const res = await axiosInstance.get('/bootstrap');
+        if (isCancelled) return;
+        const data = res.data;
+
+        if (data.user) {
+          setCurrentUser(data.user);
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        if (Array.isArray(data.users)) {
+          setAllUsers(data.users);
+          chatCache.setUsers(currentUserId, data.users);
+        }
+        if (Array.isArray(data.chatRequests)) {
+          setChatRequests(data.chatRequests);
+          chatCache.setChatRequests(currentUserId, data.chatRequests);
+        }
+        if (Array.isArray(data.connectedUserIds)) {
+          setConnectedUserIds(data.connectedUserIds);
+          chatCache.setConnectedUserIds(currentUserId, data.connectedUserIds);
+        }
+        if (data.activityMap) {
+          setLastActivityMap(data.activityMap);
+          chatCache.setActivityMap(currentUserId, data.activityMap);
+        }
+        if (data.unreadMap) {
+          setUnreadCounts(data.unreadMap);
+          chatCache.setUnreadCounts(currentUserId, data.unreadMap);
+        }
+      } catch (err) {
+        console.warn('Bootstrap API fallback to individual calls:', err);
+        if (isCancelled) return;
+        // Fallback endpoints
+        axiosInstance.get('/auth/me').then(res => {
+          setCurrentUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
+        }).catch(() => {});
+        axiosInstance.get('/users').then(res => {
+          setAllUsers(res.data);
+          chatCache.setUsers(currentUserId, res.data);
+        }).catch(() => {});
+        fetchChatRequests();
+        axiosInstance.get('/messages/recent/conversations').then(res => {
+          if (res.data) {
+            const act = res.data.activityMap || res.data || {};
+            setLastActivityMap(act);
+            chatCache.setActivityMap(currentUserId, act);
+            if (res.data.unreadMap) {
+              setUnreadCounts(res.data.unreadMap);
+              chatCache.setUnreadCounts(currentUserId, res.data.unreadMap);
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
+    syncData();
+
+    // Background poll every 15s to keep requests fresh
     const interval = setInterval(fetchChatRequests, 15000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
 
   function getChatStatus(otherUserId) {
     if (!otherUserId) return 'none';
@@ -242,7 +312,11 @@ function Chat({ onLogout }) {
   async function handleSendChatRequest(receiverId) {
     try {
       const res = await axiosInstance.post('/chat-requests/send', { receiver: receiverId });
-      setChatRequests(prev => [...prev.filter(r => r._id !== res.data._id), res.data]);
+      setChatRequests(prev => {
+        const updated = [...prev.filter(r => r._id !== res.data._id), res.data];
+        chatCache.setChatRequests(currentUserId, updated);
+        return updated;
+      });
       // Stringify ObjectIds so the server socket map lookup works correctly
       socket.emit('send-chat-request', {
         ...res.data,
@@ -257,11 +331,19 @@ function Chat({ onLogout }) {
   async function handleRespondChatRequest(requestId, action) {
     try {
       const res = await axiosInstance.post('/chat-requests/respond', { requestId, action });
-      setChatRequests(prev => prev.map(r => r._id === requestId ? res.data : r));
+      setChatRequests(prev => {
+        const updated = prev.map(r => r._id === requestId ? res.data : r);
+        chatCache.setChatRequests(currentUserId, updated);
+        return updated;
+      });
       if (action === 'accept') {
         const myId = currentUserId?.toString();
         const otherId = res.data.sender === myId ? res.data.receiver : res.data.sender;
-        setConnectedUserIds(prev => [...prev, otherId]);
+        setConnectedUserIds(prev => {
+          const updated = [...prev, otherId];
+          chatCache.setConnectedUserIds(currentUserId, updated);
+          return updated;
+        });
       }
       // Stringify ObjectIds so the server socket map lookup works correctly
       socket.emit('respond-chat-request', {
@@ -277,7 +359,11 @@ function Chat({ onLogout }) {
   function handleProfileUpdated(updatedUser) {
     setCurrentUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
-    setAllUsers(prev => prev.map(u => u._id === updatedUser._id ? { ...u, ...updatedUser } : u));
+    setAllUsers(prev => {
+      const updated = prev.map(u => u._id === updatedUser._id ? { ...u, ...updatedUser } : u);
+      chatCache.setUsers(currentUserId, updated);
+      return updated;
+    });
     socket.emit('update-user-profile', updatedUser);
   }
 
@@ -345,16 +431,26 @@ function Chat({ onLogout }) {
           icon: senderObj?.avatar || '/chat.png'
         });
 
-        setLastActivityMap(prev => ({
-          ...prev,
-          [msgSender]: msg.createdAt || new Date().toISOString(),
-        }));
+        chatCache.appendMessage(currentUserId, msgSender, msg);
+
+        setLastActivityMap(prev => {
+          const updated = {
+            ...prev,
+            [msgSender]: msg.createdAt || new Date().toISOString(),
+          };
+          chatCache.setActivityMap(currentUserId, updated);
+          return updated;
+        });
 
         if (!isActiveChat) {
-          setUnreadCounts(prev => ({
-            ...prev,
-            [msgSender]: (prev[msgSender] || 0) + 1,
-          }));
+          setUnreadCounts(prev => {
+            const updated = {
+              ...prev,
+              [msgSender]: (prev[msgSender] || 0) + 1,
+            };
+            chatCache.setUnreadCounts(currentUserId, updated);
+            return updated;
+          });
         } else {
           setMessages(prev => [...prev, msg]);
         }
@@ -365,14 +461,24 @@ function Chat({ onLogout }) {
       setMessages(prev =>
         prev.map(msg => (msg._id === id ? { ...msg, text } : msg))
       );
+      if (receiverRef.current) {
+        chatCache.updateMessage(currentUserId, receiverRef.current, id, text);
+      }
     });
 
     socket.on('delete-message', ({ id }) => {
       setMessages(prev => prev.filter(msg => msg._id !== id));
+      if (receiverRef.current) {
+        chatCache.deleteMessage(currentUserId, receiverRef.current, id);
+      }
     });
 
     socket.on('receive-chat-request', (chatReq) => {
-      setChatRequests(prev => [...prev.filter(r => r._id !== chatReq._id), chatReq]);
+      setChatRequests(prev => {
+        const updated = [...prev.filter(r => r._id !== chatReq._id), chatReq];
+        chatCache.setChatRequests(currentUserId, updated);
+        return updated;
+      });
       const senderObj = allUsers.find(u => u._id?.toString() === chatReq.sender?.toString());
       const senderName = senderObj?.username || 'Someone';
       soundManager.playDeviceNotification({
@@ -383,21 +489,35 @@ function Chat({ onLogout }) {
     });
 
     socket.on('update-chat-request', (chatReq) => {
-      setChatRequests(prev => prev.map(r => r._id === chatReq._id ? chatReq : r));
+      setChatRequests(prev => {
+        const updated = prev.map(r => r._id === chatReq._id ? chatReq : r);
+        chatCache.setChatRequests(currentUserId, updated);
+        return updated;
+      });
       if (chatReq.status === 'accepted') {
         const otherId = chatReq.sender === currentUserId ? chatReq.receiver : chatReq.sender;
-        setConnectedUserIds(prev => [...prev, otherId]);
+        setConnectedUserIds(prev => {
+          const updated = [...prev, otherId];
+          chatCache.setConnectedUserIds(currentUserId, updated);
+          return updated;
+        });
       }
     });
 
     socket.on('update-user-profile', (updatedUser) => {
-      setAllUsers(prev => prev.map(u => u._id === updatedUser._id ? { ...u, ...updatedUser } : u));
+      setAllUsers(prev => {
+        const updated = prev.map(u => u._id === updatedUser._id ? { ...u, ...updatedUser } : u);
+        chatCache.setUsers(currentUserId, updated);
+        return updated;
+      });
     });
 
     socket.on('new-user-registered', (newUser) => {
       setAllUsers(prev => {
         if (prev.some(u => u._id?.toString() === newUser._id?.toString())) return prev;
-        return [...prev, newUser];
+        const updated = [...prev, newUser];
+        chatCache.setUsers(currentUserId, updated);
+        return updated;
       });
     });
 
@@ -422,7 +542,7 @@ function Chat({ onLogout }) {
       socket.off('new-user-registered');
       socket.off('force-logout');
     };
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, allUsers]);
 
 
@@ -454,35 +574,55 @@ function Chat({ onLogout }) {
     };
   }, []);
 
-  // Fetch users
+  // On mount, if a receiver was restored, sync its messages in the background
   useEffect(() => {
-    axiosInstance.get('/users')
-      .then(res => setAllUsers(res.data))
-      .catch(err => console.error('Failed to fetch users:', err));
+    if (receiver && currentUserId) {
+      axiosInstance.get(`/messages/${receiver}`)
+        .then(res => {
+          if (res.data) {
+            setMessages(res.data);
+            chatCache.setMessages(currentUserId, receiver, res.data);
+          }
+        })
+        .catch(err => console.error('Initial receiver sync error:', err));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchMessages(receiverId) {
+    if (!receiverId) return;
     setReceiver(receiverId);
-    setUnreadCounts(prev => ({ ...prev, [receiverId?.toString()]: 0 }));
+    chatCache.setLastReceiver(currentUserId, receiverId);
+
+    setUnreadCounts(prev => {
+      const updated = { ...prev, [receiverId?.toString()]: 0 };
+      chatCache.setUnreadCounts(currentUserId, updated);
+      return updated;
+    });
+
     if (isMobile) {
       setIsMobileChatOpen(true);
     }
+
+    // Zero latency: immediately hydrate messages from persistent cache!
+    const cached = chatCache.getMessages(currentUserId, receiverId);
+    if (cached && cached.length > 0) {
+      setMessages(cached);
+    } else {
+      setMessages([]);
+    }
+
+    // Background sync to fetch fresh / newly delivered messages
     try {
       const res = await axiosInstance.get(`/messages/${receiverId}`);
-      setMessages(res.data);
+      if (res.data) {
+        setMessages(res.data);
+        chatCache.setMessages(currentUserId, receiverId, res.data);
+      }
     } catch (err) {
       console.error('Error fetching messages:', err);
     }
   }
-
-  // Fetch messages on receiver select
-  useEffect(() => {
-    if (receiver) {
-      fetchMessages(receiver);
-      setUnreadCounts(prev => ({ ...prev, [receiver?.toString()]: 0 }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [receiver]);
 
   // Mark unseen messages as seen
   useEffect(() => {
@@ -587,13 +727,20 @@ function Chat({ onLogout }) {
       const response = await axiosInstance.post('/messages', msg);
       const savedMsg = response.data;
       socket.emit('send-message', savedMsg);
-      setMessages(prev => [...prev, { ...savedMsg, seenBy: [] }]);
+      const newMsgWithStatus = { ...savedMsg, seenBy: [] };
+      setMessages(prev => [...prev, newMsgWithStatus]);
+      chatCache.appendMessage(currentUserId, receiver, newMsgWithStatus);
+
       if (overrideText === null) setMessage('');
       setTypingUsers({});
-      setLastActivityMap(prev => ({
-        ...prev,
-        [receiver]: new Date().toISOString(),
-      }));
+      setLastActivityMap(prev => {
+        const updated = {
+          ...prev,
+          [receiver]: new Date().toISOString(),
+        };
+        chatCache.setActivityMap(currentUserId, updated);
+        return updated;
+      });
     } catch (err) {
       console.error('Failed to send message:', err);
     }
@@ -662,6 +809,9 @@ function Chat({ onLogout }) {
       setMessages(prev =>
         prev.map(msg => (msg._id === id ? { ...msg, text: newText } : msg))
       );
+      if (receiver) {
+        chatCache.updateMessage(currentUserId, receiver, id, newText);
+      }
       socket.emit('edit-message', { id, text: newText });
       setEditingMessageId(null);
     } catch (err) {
@@ -673,6 +823,9 @@ function Chat({ onLogout }) {
     try {
       await axiosInstance.delete(`/messages/${id}`);
       setMessages(prev => prev.filter(msg => msg._id !== id));
+      if (receiver) {
+        chatCache.deleteMessage(currentUserId, receiver, id);
+      }
       socket.emit('delete-message', { id });
     } catch (err) {
       console.error('Delete failed:', err);

@@ -7,20 +7,45 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) config.headers['Authorization'] = token;
+    if (token) {
+      config.headers['Authorization'] = token;
+      localStorage.setItem('last_active_time', Date.now().toString());
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      localStorage.setItem('last_active_time', Date.now().toString());
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
-      if (error.response.data?.code === 'LOGGED_IN_ELSEWHERE') {
-        alert('You have been logged out because your account was accessed on another device.');
+      const code = error.response.data?.code;
+      const message = error.response.data?.message;
+
+      if (code === 'SESSION_EXPIRED_INACTIVE') {
+        sessionStorage.setItem('session_expired_message', message || 'Your session expired because you have not been active for multiple days. Please log in again.');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('last_active_time');
+        window.location.href = '/login';
+      } else if (code === 'LOGGED_IN_ELSEWHERE') {
+        sessionStorage.setItem('session_expired_message', 'You have been logged out because your account was accessed on another device.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('last_active_time');
+        window.location.href = '/login';
+      } else if (code === 'TOKEN_EXPIRED') {
+        sessionStorage.setItem('session_expired_message', 'Your session has expired. Please log in again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('last_active_time');
         window.location.href = '/login';
       }
     }

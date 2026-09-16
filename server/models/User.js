@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   avatar: { type: String, default: '' },
   bio: { type: String, default: 'Hey there! I am using Convo.' },
-  tokenVersion: { type: Number, default: 0 }
+  tokenVersion: { type: Number, default: 0 },
+  lastActiveAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 

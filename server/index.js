@@ -13,6 +13,7 @@ const Message = require('./models/Message');
 const authRoutes = require('./routes/auth');
 const messageRoutes = require('./routes/messages');
 const chatRequestRoutes = require('./routes/chatRequests');
+const bootstrapRoutes = require('./routes/bootstrap');
 const User = require('./models/User');
 
 dotenv.config();
@@ -132,6 +133,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/chat-requests', chatRequestRoutes);
+app.use('/api/bootstrap', bootstrapRoutes);
 
 
 app.get('/api/users', async (req, res) => {
