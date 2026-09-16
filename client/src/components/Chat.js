@@ -1142,21 +1142,7 @@ function Chat({ onLogout }) {
                                     });
                                   }}
                                 >
-                                  {/* Quick Reaction Hover Bar */}
-                                  <div className="bubble-quick-actions">
-                                    {['👍', '❤️', '😂', '🔥', '🎉'].map(emoji => (
-                                      <button
-                                        key={emoji}
-                                        className="quick-reaction-btn"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          sendMessage(null, emoji);
-                                        }}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
+
 
                                   {editingMessageId === msg._id ? (
                                     <EditMessage
