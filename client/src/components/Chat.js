@@ -117,6 +117,7 @@ function Chat({ onLogout }) {
   const [previewImage, setPreviewImage] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState(null);
+  const [isSendAnimating, setIsSendAnimating] = useState(false);
   const [notifPermission, setNotifPermission] = useState(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'granted'
   );
@@ -188,6 +189,54 @@ function Chat({ onLogout }) {
     messageId: null,
     isFileMessage: false,
   });
+
+  const longPressTimeoutRef = useRef(null);
+  const touchStartCoordsRef = useRef({ x: 0, y: 0 });
+
+  const handleMessageTouchStart = (e, msg, isSender) => {
+    if (!isSender) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartCoordsRef.current = { x: touch.clientX, y: touch.clientY };
+
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+    }
+
+    longPressTimeoutRef.current = setTimeout(() => {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(40); } catch (err) {}
+      }
+      setContextMenu({
+        visible: true,
+        x: touch.clientX,
+        y: touch.clientY,
+        messageId: msg._id,
+        isFileMessage: !!msg.file,
+      });
+      longPressTimeoutRef.current = null;
+    }, 450);
+  };
+
+  const handleMessageTouchMove = (e) => {
+    if (!longPressTimeoutRef.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = Math.abs(touch.clientX - touchStartCoordsRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartCoordsRef.current.y);
+    // If the finger moves more than 8px, user is scrolling the chat -> cancel long press!
+    if (dx > 8 || dy > 8) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const handleMessageTouchEnd = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
 
   const typingTimeoutRef = useRef({});
   const lastTypingEmitRef = useRef(0);
@@ -691,6 +740,10 @@ function Chat({ onLogout }) {
     if (overrideText === null) setMessage('');
     if (!overrideFile && file) setFile(null);
     socket.emit('stop-typing', { sender: currentUserId, receiver });
+
+    // Trigger send button animation (moves forward and returns back to center)
+    setIsSendAnimating(true);
+    setTimeout(() => setIsSendAnimating(false), 380);
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const nowIso = new Date().toISOString();
@@ -1332,14 +1385,20 @@ function Chat({ onLogout }) {
                                   onContextMenu={(e) => {
                                     e.preventDefault();
                                     if (!isSender) return;
+                                    const safeX = Math.max(16, Math.min(e.clientX, window.innerWidth - 170));
+                                    const safeY = Math.max(16, Math.min(e.clientY, window.innerHeight - 130));
                                     setContextMenu({
                                       visible: true,
-                                      x: e.clientX,
-                                      y: e.clientY,
+                                      x: safeX,
+                                      y: safeY,
                                       messageId: msg._id,
                                       isFileMessage: !!msg.file
                                     });
                                   }}
+                                  onTouchStart={(e) => handleMessageTouchStart(e, msg, isSender)}
+                                  onTouchMove={handleMessageTouchMove}
+                                  onTouchEnd={handleMessageTouchEnd}
+                                  onTouchCancel={handleMessageTouchEnd}
                                 >
 
 
@@ -1520,7 +1579,7 @@ function Chat({ onLogout }) {
 
                       <button
                         type="submit"
-                        className="send-msg-btn"
+                        className={`send-msg-btn ${isSendAnimating ? 'sent-animating' : ''}`}
                         disabled={(!message.trim() && !file) || isRecording}
                         title="Send message"
                       >
@@ -1692,33 +1751,46 @@ function Chat({ onLogout }) {
         </div>
       )}
 
-      {/* CONTEXT MENU */}
+      {/* CONTEXT MENU (DESKTOP POPOVER & MOBILE BOTTOM ACTION SHEET) */}
       {contextMenu.visible && (
         <div
-          className="context-menu-popover"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()}
+          className="context-menu-backdrop"
+          onClick={() => setContextMenu(prev => ({ ...prev, visible: false }))}
         >
-          {!contextMenu.isFileMessage && (
+          <div
+            className="context-menu-popover"
+            style={isMobile ? {} : { top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {!contextMenu.isFileMessage && (
+              <div
+                className="context-menu-item"
+                onClick={() => {
+                  const msg = messages.find(m => m._id === contextMenu.messageId);
+                  if (msg) setEditingMessageId(msg._id);
+                  setContextMenu(prev => ({ ...prev, visible: false }));
+                }}
+              >
+                <Edit2 size={16} /> <span>Edit Message</span>
+              </div>
+            )}
             <div
-              className="context-menu-item"
+              className="context-menu-item danger"
               onClick={() => {
-                const msg = messages.find(m => m._id === contextMenu.messageId);
-                if (msg) setEditingMessageId(msg._id);
-                setContextMenu({ ...contextMenu, visible: false });
+                handleDeleteMessage(contextMenu.messageId);
+                setContextMenu(prev => ({ ...prev, visible: false }));
               }}
             >
-              <Edit2 size={14} /> Edit
+              <Trash2 size={16} /> <span>Delete Message</span>
             </div>
-          )}
-          <div
-            className="context-menu-item danger"
-            onClick={() => {
-              handleDeleteMessage(contextMenu.messageId);
-              setContextMenu({ ...contextMenu, visible: false });
-            }}
-          >
-            <Trash2 size={14} /> Delete
+            {isMobile && (
+              <div
+                className="context-menu-item cancel"
+                onClick={() => setContextMenu(prev => ({ ...prev, visible: false }))}
+              >
+                <X size={16} /> <span>Cancel</span>
+              </div>
+            )}
           </div>
         </div>
       )}

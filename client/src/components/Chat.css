@@ -532,6 +532,11 @@
   word-break: break-word;
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .message-bubble.sender {
@@ -656,6 +661,11 @@
   margin-top: 4px;
   font-size: 0.72rem;
   opacity: 0.8;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: none;
 }
 
 /* EDIT MESSAGE INLINE */
@@ -793,11 +803,13 @@
   transition: all var(--transition-fast);
   flex-shrink: 0;
   position: relative;
+  padding: 0;
 }
 
 .send-msg-btn svg {
+  display: block;
+  transform: translate(0, 0) rotate(0deg);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transform: translateX(1px) rotate(-8deg);
 }
 
 .send-msg-btn:disabled {
@@ -809,21 +821,38 @@
 }
 
 .send-msg-btn:disabled svg {
-  transform: translateX(0) rotate(0deg);
+  transform: translate(0, 0) rotate(0deg);
 }
 
 .send-msg-btn:not(:disabled):hover {
-  transform: scale(1.08) translateY(-1px);
+  transform: scale(1.05) translateY(-1px);
   box-shadow: 0 6px 22px rgba(139, 92, 246, 0.6);
   background-position: 100% 100%;
 }
 
 .send-msg-btn:not(:disabled):hover svg {
-  transform: translateX(3px) translateY(-1px) rotate(15deg) scale(1.15);
+  transform: translate(2px, -1px) rotate(10deg);
 }
 
 .send-msg-btn:not(:disabled):active {
   transform: scale(0.94);
+}
+
+/* Send animation: moves forward and returns back to center */
+.send-msg-btn.sent-animating svg {
+  animation: sendNudgeReturn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes sendNudgeReturn {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  45% {
+    transform: translate(5px, -3px) rotate(16deg) scale(1.18);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
 }
 
 /* EMOJI PICKER POPOVER */
@@ -902,27 +931,44 @@
   transform: scale(1.2);
 }
 
-/* CONTEXT MENU */
+/* CONTEXT MENU BACKDROP & POPOVER */
+.context-menu-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1000;
+  animation: cmFadeIn 0.15s ease-out;
+}
+
 .context-menu-popover {
   position: fixed;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 1000;
-  padding: 6px 0;
-  width: 140px;
+  z-index: 1001;
+  padding: 6px;
+  min-width: 160px;
+  animation: cmScaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .context-menu-item {
-  padding: 8px 16px;
+  padding: 9px 14px;
   font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
   color: var(--text-primary);
-  transition: background var(--transition-fast);
+  transition: all var(--transition-fast);
+  user-select: none;
 }
 
 .context-menu-item:hover {
@@ -930,9 +976,35 @@
   color: var(--accent-primary);
 }
 
-.context-menu-item.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+.context-menu-item.danger {
   color: #ef4444;
+}
+
+.context-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.context-menu-item.cancel {
+  margin-top: 6px;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  justify-content: center;
+}
+
+@keyframes cmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cmScaleIn {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes cmSlideUpMobile {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* MODALS */
@@ -1199,6 +1271,37 @@
   .modal-dialog {
     width: 95%;
     padding: 22px 18px;
+  }
+
+  /* Mobile Bottom Action Sheet (Guaranteed 100% inside screen layout) */
+  .context-menu-backdrop {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .context-menu-popover {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 20px;
+    padding: 10px;
+    background: var(--bg-surface);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+    border: 1px solid var(--border-color);
+    animation: cmSlideUpMobile 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .context-menu-popover .context-menu-item {
+    padding: 14px 18px;
+    font-size: 0.95rem;
+    font-weight: 600;
   }
 }
 
