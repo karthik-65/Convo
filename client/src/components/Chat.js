@@ -86,24 +86,9 @@ function Chat({ onLogout }) {
   const [lastActivityMap, setLastActivityMap] = useState(() => chatCache.getActivityMap(currentUserId));
   const [unreadCounts, setUnreadCounts] = useState(() => chatCache.getUnreadCounts(currentUserId));
 
-  // Remember last receiver for instant desktop continuation
-  const [receiver, setReceiver] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      return chatCache.getLastReceiver(currentUserId);
-    }
-    return null;
-  });
-
-  // Zero-latency instant messages hydration for current receiver
-  const [messages, setMessages] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      const lastRec = chatCache.getLastReceiver(currentUserId);
-      if (lastRec) {
-        return chatCache.getMessages(currentUserId, lastRec);
-      }
-    }
-    return [];
-  });
+  // Everytime the page opens newly the user sees the home page without any chats open
+  const [receiver, setReceiver] = useState(null);
+  const [messages, setMessages] = useState([]);
 
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
@@ -136,18 +121,44 @@ function Chat({ onLogout }) {
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'granted'
   );
 
-  // Dynamic Mobile Viewport Height calculation & window resize listener
+  // Dynamic Mobile Viewport Height calculation & window resize listener (with visualViewport for virtual keyboards)
   useEffect(() => {
     const handleResize = () => {
-      const vh = window.innerHeight * 0.01;
+      const vv = window.visualViewport;
+      const height = vv ? vv.height : window.innerHeight;
+      const vh = height * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
-      setIsMobile(window.innerWidth < 768);
+
+      const isNarrow = window.innerWidth < 768;
+      setIsMobile(isNarrow);
+
+      // Detect if virtual keyboard is active (visual viewport is noticeably smaller than screen)
+      const isKeyboardActive = isNarrow && vv && (window.innerHeight - vv.height > 100);
+      document.documentElement.style.setProperty(
+        '--keyboard-safe-bottom',
+        isKeyboardActive ? '4px' : 'max(10px, env(safe-area-inset-bottom))'
+      );
+
+      // Prevent iOS Safari page-level drift
+      if (vv && vv.offsetTop > 0) {
+        window.scrollTo(0, 0);
+      }
     };
 
     handleResize();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleResize);
+    }
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
+
     return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleResize);
+      }
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
     };
@@ -574,25 +585,9 @@ function Chat({ onLogout }) {
     };
   }, []);
 
-  // On mount, if a receiver was restored, sync its messages in the background
-  useEffect(() => {
-    if (receiver && currentUserId) {
-      axiosInstance.get(`/messages/${receiver}`)
-        .then(res => {
-          if (res.data) {
-            setMessages(res.data);
-            chatCache.setMessages(currentUserId, receiver, res.data);
-          }
-        })
-        .catch(err => console.error('Initial receiver sync error:', err));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function fetchMessages(receiverId) {
     if (!receiverId) return;
     setReceiver(receiverId);
-    chatCache.setLastReceiver(currentUserId, receiverId);
 
     setUnreadCounts(prev => {
       const updated = { ...prev, [receiverId?.toString()]: 0 };
@@ -1435,6 +1430,22 @@ function Chat({ onLogout }) {
                         placeholder={isRecording ? `Recording voice note (${recordingTime}s)...` : 'Type a message...'}
                         value={message}
                         disabled={isRecording}
+                        onFocus={() => {
+                          if (isMobile) {
+                            setTimeout(() => {
+                              if (chatBoxRef.current) {
+                                chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+                              }
+                              window.scrollTo(0, 0);
+                            }, 150);
+                            setTimeout(() => {
+                              if (chatBoxRef.current) {
+                                chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+                              }
+                              window.scrollTo(0, 0);
+                            }, 350);
+                          }
+                        }}
                         onChange={(e) => {
                           const val = e.target.value;
                           setMessage(val);

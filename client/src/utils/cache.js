@@ -100,16 +100,6 @@ export const chatCache = {
     safeSet(`${PREFIX}${userId}_unread_counts`, counts);
   },
 
-  // Last active receiver
-  getLastReceiver(userId) {
-    if (!userId) return null;
-    return safeGet(`${PREFIX}${userId}_last_receiver`, null);
-  },
-  setLastReceiver(userId, receiverId) {
-    if (!userId) return;
-    safeSet(`${PREFIX}${userId}_last_receiver`, receiverId);
-  },
-
   // Messages per conversation
   getMessages(userId, otherUserId) {
     if (!userId || !otherUserId) return [];

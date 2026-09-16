@@ -58,7 +58,9 @@
   --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
 }
 
-html, body, #root {
+html, body {
+  position: fixed;
+  width: 100%;
   height: 100%;
   height: 100dvh;
   margin: 0;
@@ -71,6 +73,13 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  height: calc(var(--vh, 1vh) * 100);
+  overflow: hidden;
 }
 
 html {
