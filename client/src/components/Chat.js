@@ -682,9 +682,51 @@ function Chat({ onLogout }) {
   async function sendMessage(overrideFile = null, overrideText = null) {
     if (!receiver) return;
     const sendFile = overrideFile || file;
-    const sendText = overrideText !== null ? overrideText : message;
+    const sendText = (overrideText !== null ? overrideText : message).trim();
 
-    if (!sendText.trim() && !sendFile) return;
+    if (!sendText && !sendFile) return;
+
+    // 1. INSTANT (0ms) ZERO-LATENCY UI RESPONSE
+    // Immediately clear input box so user can keep typing without waiting for server
+    if (overrideText === null) setMessage('');
+    if (!overrideFile && file) setFile(null);
+    socket.emit('stop-typing', { sender: currentUserId, receiver });
+
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const nowIso = new Date().toISOString();
+
+    // Optimistically render text messages right away
+    if (!sendFile) {
+      const optimisticMsg = {
+        _id: tempId,
+        sender: currentUserId,
+        receiver,
+        text: sendText,
+        file: '',
+        fileName: '',
+        fileSize: 0,
+        fileType: '',
+        createdAt: nowIso,
+        seenBy: [],
+        deliveredTo: [],
+        isOptimistic: true,
+      };
+
+      setMessages(prev => [...prev, optimisticMsg]);
+      isAutoScroll.current = true;
+      if (chatBoxRef.current) {
+        chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+      }
+
+      setLastActivityMap(prev => {
+        const updated = {
+          ...prev,
+          [receiver]: nowIso,
+        };
+        chatCache.setActivityMap(currentUserId, updated);
+        return updated;
+      });
+    }
 
     let fileUrl = '';
     let fileName = '';
@@ -700,7 +742,6 @@ function Chat({ onLogout }) {
         fileName = sendFile.name;
         fileSize = sendFile.size;
         fileType = sendFile.type;
-        if (!overrideFile) setFile(null);
       } catch (err) {
         console.error('File upload failed:', err);
         return;
@@ -715,7 +756,7 @@ function Chat({ onLogout }) {
       fileName,
       fileSize,
       fileType,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
     try {
@@ -723,21 +764,31 @@ function Chat({ onLogout }) {
       const savedMsg = response.data;
       socket.emit('send-message', savedMsg);
       const newMsgWithStatus = { ...savedMsg, seenBy: [] };
-      setMessages(prev => [...prev, newMsgWithStatus]);
-      chatCache.appendMessage(currentUserId, receiver, newMsgWithStatus);
 
-      if (overrideText === null) setMessage('');
+      if (!sendFile) {
+        // Replace optimistic placeholder with real confirmed MongoDB message
+        setMessages(prev => prev.map(m => (m._id === tempId ? newMsgWithStatus : m)));
+      } else {
+        setMessages(prev => [...prev, newMsgWithStatus]);
+        setLastActivityMap(prev => {
+          const updated = {
+            ...prev,
+            [receiver]: nowIso,
+          };
+          chatCache.setActivityMap(currentUserId, updated);
+          return updated;
+        });
+      }
+
+      chatCache.appendMessage(currentUserId, receiver, newMsgWithStatus);
       setTypingUsers({});
-      setLastActivityMap(prev => {
-        const updated = {
-          ...prev,
-          [receiver]: new Date().toISOString(),
-        };
-        chatCache.setActivityMap(currentUserId, updated);
-        return updated;
-      });
     } catch (err) {
       console.error('Failed to send message:', err);
+      if (!sendFile) {
+        // Remove failed message and restore text so the user doesn't lose what they wrote
+        setMessages(prev => prev.filter(m => m._id !== tempId));
+        if (overrideText === null) setMessage(sendText);
+      }
     }
   }
 
@@ -1383,8 +1434,15 @@ function Chat({ onLogout }) {
                       </div>
                     )}
 
-                    <div className="input-controls-row">
+                    <form
+                      className="input-controls-row"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        sendMessage();
+                      }}
+                    >
                       <button
+                        type="button"
                         className="input-icon-btn"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1417,6 +1475,7 @@ function Chat({ onLogout }) {
 
                       {/* Microphone / Voice Recorder Button */}
                       <button
+                        type="button"
                         className={`input-icon-btn ${isRecording ? 'recording' : ''}`}
                         onClick={isRecording ? stopRecording : startRecording}
                         title={isRecording ? `Recording... (${recordingTime}s) Click to send` : 'Record voice note'}
@@ -1460,14 +1519,14 @@ function Chat({ onLogout }) {
                       />
 
                       <button
+                        type="submit"
                         className="send-msg-btn"
                         disabled={(!message.trim() && !file) || isRecording}
-                        onClick={() => sendMessage()}
                         title="Send message"
                       >
                         <Send size={18} />
                       </button>
-                    </div>
+                    </form>
 
                     {/* Emoji Picker Popover */}
                     {showEmojiPicker && (
